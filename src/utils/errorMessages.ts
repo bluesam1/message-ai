@@ -35,7 +35,6 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'auth/app-deleted': 'Application error. Please contact support.',
   'auth/app-not-authorized': 'Application is not authorized. Please contact support.',
   'auth/argument-error': 'Invalid request. Please try again.',
-  'auth/invalid-api-key': 'Configuration error. Please contact support.',
   'auth/requires-recent-login': 'Please sign out and sign in again to complete this action.',
 };
 

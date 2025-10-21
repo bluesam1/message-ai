@@ -5,6 +5,18 @@
 import { Timestamp } from 'firebase/firestore';
 
 /**
+ * User data with timestamps as numbers (for client-side usage)
+ */
+export interface User {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL: string | null;
+  createdAt: number;
+  lastSeen: number;
+}
+
+/**
  * User profile stored in Firestore
  */
 export interface UserProfile {
