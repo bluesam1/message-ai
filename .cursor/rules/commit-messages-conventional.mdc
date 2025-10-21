@@ -1,0 +1,11 @@
+---
+description: Conventional Commits with short, actionable scopes and PRD gate checks.
+globs:
+  - ".husky/**/*"
+  - ".github/**/*"
+  - "**/*"
+alwaysApply: false
+---
+
+# Conventional Commits
+[Full content from earlier]

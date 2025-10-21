@@ -1,0 +1,56 @@
+module.exports = {
+  preset: 'jest-expo',
+  testEnvironment: 'node',
+  
+  // Test file patterns
+  testMatch: [
+    '**/__tests__/**/*.test.[jt]s?(x)',
+    '**/?(*.)+(spec|test).[jt]s?(x)',
+  ],
+  
+  // Files to ignore
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/android/',
+    '/ios/',
+    '/.expo/',
+  ],
+  
+  // Transform files
+  transformIgnorePatterns: [
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)',
+  ],
+  
+  // Setup files
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  
+  // Coverage configuration
+  collectCoverageFrom: [
+    'src/**/*.{js,jsx,ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/**/*.test.{js,jsx,ts,tsx}',
+    '!src/**/__tests__/**',
+  ],
+  
+  // Coverage thresholds (matching PRD requirements: 70%+)
+  coverageThreshold: {
+    global: {
+      statements: 70,
+      branches: 70,
+      functions: 70,
+      lines: 70,
+    },
+  },
+  
+  // Module name mapper for path aliases
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
+  
+  // Clear mocks between tests
+  clearMocks: true,
+  
+  // Verbose output
+  verbose: true,
+};
+

@@ -1,0 +1,11 @@
+---
+description: Enforce mobile performance budgets and rendering hygiene.
+globs:
+  - "src/screens/**/*"
+  - "src/components/**/*"
+  - "app/**/*"
+alwaysApply: false
+---
+
+# Performance Budgets
+[Full content from earlier]

@@ -1,0 +1,11 @@
+---
+description: Rules for React Native + Expo app structure, patterns, and RN-specific guidance.
+globs:
+  - "app/**/*"
+  - "src/**/*"
+  - "App.tsx"
+alwaysApply: false
+---
+
+# React Native + Expo (Project Rules)
+[Full content from earlier]

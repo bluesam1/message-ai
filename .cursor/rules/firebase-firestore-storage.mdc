@@ -1,0 +1,11 @@
+---
+description: Safe and efficient Firebase usage (Auth, Firestore, Storage, FCM) for this app.
+globs:
+  - "src/services/firebase/**/*"
+  - "src/lib/firebase/**/*"
+  - "app/**/*"
+alwaysApply: false
+---
+
+# Firebase Rules (Project)
+[Full content from earlier]

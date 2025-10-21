@@ -1,0 +1,10 @@
+---
+description: JavaScript/TypeScript code quality guardrails for RN/Expo.
+globs:
+  - "src/**/*"
+  - "app/**/*"
+alwaysApply: false
+---
+
+# Code Quality
+[Full content from earlier]

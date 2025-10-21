@@ -1,0 +1,13 @@
+---
+description: TypeScript defaults + unit tests with Jest and optional Detox e2e for Expo projects.
+globs:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "e2e/**/*"
+alwaysApply: false
+---
+
+# TypeScript + Jest (+ Detox)
+[Full content from earlier]
