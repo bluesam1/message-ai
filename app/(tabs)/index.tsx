@@ -158,7 +158,7 @@ export default function ConversationsScreen() {
             {timeAgo && <Text style={styles.timestamp}>{timeAgo}</Text>}
           </View>
           {item.lastMessage && (
-            <Text style={styles.lastMessage} numberOfLines={1}>
+            <Text style={styles.lastMessage} numberOfLines={1} ellipsizeMode="tail">
               {item.lastMessage}
             </Text>
           )}

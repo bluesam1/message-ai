@@ -12,6 +12,7 @@ import useMessages from '../../src/hooks/useMessages';
 import useConversation from '../../src/hooks/useConversation';
 import MessageList from '../../src/components/chat/MessageList';
 import MessageInput from '../../src/components/chat/MessageInput';
+import OfflineBanner from '../../src/components/chat/OfflineBanner';
 import { initDatabase } from '../../src/services/sqlite/sqliteService';
 
 export default function ChatScreen() {
@@ -59,6 +60,9 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
+        {/* Offline Banner */}
+        <OfflineBanner />
+
         {/* Message List */}
         <MessageList
           messages={messages}

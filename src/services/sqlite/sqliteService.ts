@@ -70,6 +70,26 @@ export async function initDatabase(): Promise<void> {
       ON conversations(lastMessageTime DESC);
     `);
     
+    // Create pendingMessages table for offline queue
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS pendingMessages (
+        id TEXT PRIMARY KEY,
+        conversationId TEXT NOT NULL,
+        senderId TEXT NOT NULL,
+        text TEXT NOT NULL,
+        imageUrl TEXT,
+        timestamp INTEGER NOT NULL,
+        retryCount INTEGER DEFAULT 0,
+        createdAt INTEGER NOT NULL
+      );
+    `);
+    
+    // Create index on pendingMessages for query performance
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_pending_messages_time 
+      ON pendingMessages(timestamp ASC);
+    `);
+    
     console.log('[SQLite] Database initialized successfully');
   } catch (error) {
     console.error('[SQLite] Failed to initialize database:', error);
