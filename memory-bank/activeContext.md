@@ -1,22 +1,34 @@
 # Active Context
 
 ## Current Status
-**Phase:** PRD 01 Complete ✅ - Ready for PRD 02 (Authentication)  
+**Phase:** PRD 02 Complete ✅ - Ready for PRD 03 (Core Messaging)  
 **Date:** October 21, 2025  
 **Branch:** main  
-**App Status:** Building and running on Android ✅
+**App Status:** Building and running on Android ✅ - Authentication fully functional
 
 ## What Just Happened
 
 ### ✅ Completed (PRD 01 - Project Setup)
 1. **Firebase Project:** Configured with Auth, Firestore, Storage, and FCM
 2. **Development Environment:** Expo project with TypeScript, all dependencies installed
-3. **Testing Infrastructure:** Jest + React Native Testing Library configured (5/5 tests passing)
+3. **Testing Infrastructure:** Jest configured (initially 5/5 tests, now 29/29 passing)
 4. **Pre-commit Hooks:** Husky + lint-staged working (tests run before commits)
 5. **Firebase Integration:** Config files set up with security best practices
 6. **Android Build:** Development build successfully running on Pixel 7 emulator
 7. **Documentation:** README.md and FIREBASE_SETUP.md created
 8. **Windows Setup:** JAVA_HOME configured, Gradle issues resolved
+
+### ✅ Completed (PRD 02 - Authentication System)
+1. **Auth Services:** `authService.ts` with email/password + Google Sign-In
+2. **User Services:** `userService.ts` with Firestore profile management
+3. **Auth Context:** Global auth state with `AuthProvider` and `useAuth` hook
+4. **Auth Screens:** Login and registration screens with validation
+5. **Navigation:** Expo Router with auth-protected routes (`(auth)/` and `(tabs)/` groups)
+6. **Google OAuth:** Working Google Sign-In with expo-auth-session
+7. **Error Handling:** User-friendly error messages mapped from Firebase codes
+8. **Validation:** Email, password, and display name validation utilities
+9. **Unit Tests:** 29 tests passing (validation, error messages, auth utilities)
+10. **Package Compatibility:** Resolved React 19.1.0/RN 0.81.4 version conflicts
 
 ### 📋 Feature PRDs Created
 All PRDs are in `/tasks` directory:
@@ -33,21 +45,24 @@ All PRDs are in `/tasks` directory:
 ## Current Focus
 
 ### Immediate Next Steps
-**PRIORITY:** Begin PRD 02 - Authentication System
+**PRIORITY:** Begin PRD 03 - Core One-on-One Messaging
 
-#### PRD 02 Goals
-- Implement email/password authentication
-- Implement Google Sign-In
-- Create auth UI screens (SignIn, SignUp, Home)
-- Set up auth state management
-- Handle auth errors gracefully
+#### PRD 03 Goals
+- Implement real-time one-on-one messaging
+- Create conversation list screen
+- Build chat screen with message history
+- Set up SQLite for local message persistence
+- Implement optimistic UI for instant message sending
+- Add Firestore real-time listeners for message sync
+- Achieve 60 FPS scrolling performance
 
-#### Before Starting PRD 02
-- [x] App launches successfully on Android
-- [x] Firebase config is working
-- [x] Project structure is set up
-- [ ] Review PRD 02 requirements
-- [ ] Plan component structure
+#### Before Starting PRD 03
+- [x] Authentication system fully working
+- [x] User profiles created in Firestore
+- [x] Navigation structure in place
+- [ ] Review PRD 03 requirements
+- [ ] Plan Firestore schema for conversations/messages
+- [ ] Design SQLite schema for local caching
 
 ## Active Decisions
 
@@ -138,6 +153,18 @@ PRD 08 (Notifications) ────┘  ← Can develop in parallel
 5. **First Build is Slow:** 5-6 minutes for initial Android build, subsequent builds much faster
 6. **Testing Setup is Crucial:** Pre-commit hooks catch issues before they reach git
 
+### From PRD 02 Implementation
+1. **React Version Precision:** React Native 0.81.4 requires React 19.1.0 **exactly** - even 19.2.0 causes errors
+2. **Metro Cache Issues:** Always clear Metro cache (`--clear --reset-cache`) after changing `.env` files
+3. **Package Version Management:** Use `npx expo install` for all Expo packages to ensure SDK compatibility
+4. **Testing Library Lag:** Testing libraries may not support latest React versions - validate compatibility before adding
+5. **Firebase Default Persistence:** Firebase Auth handles session persistence automatically on React Native - no AsyncStorage needed
+6. **Environment Variable Best Practices:** Android vs Web Firebase credentials are different - always use platform-specific config
+7. **Google OAuth Configuration:** expo-auth-session requires both `webClientId` and `androidClientId` for Android OAuth
+8. **Error Mapping Importance:** User-friendly error messages significantly improve UX - map all Firebase error codes
+9. **Validation First:** Client-side validation catches 90% of errors before they reach Firebase
+10. **Context API Simplicity:** For auth state, Context API is perfect - no need for complex state management
+
 ### From PRD Analysis
 1. **Test Coverage Focus:** Focus tests on utils and business logic, skip UI/Firebase tests
 2. **Performance Budget:** FlatList optimizations are critical for 60 FPS goal
@@ -181,10 +208,18 @@ Currently using:
 - ✅ Windows-specific issues documented and solved
 - ✅ Emulator performance verified (Pixel 7, API 35)
 
-### For PRD 02
-- ❓ Which auth method to implement first? → Email/password or Google Sign-In?
-- ❓ Do we need password reset flow in MVP? → Check PRD 02
-- ❓ How to handle auth state persistence? → AsyncStorage or SecureStore?
+### For PRD 02 (Completed)
+- ✅ Which auth method to implement first? → **Implemented both simultaneously**
+- ✅ Do we need password reset flow in MVP? → **Deferred to post-MVP (Firebase makes it easy to add later)**
+- ✅ How to handle auth state persistence? → **Using Firebase's default persistence (no additional deps)**
+- ✅ How to resolve React version conflicts? → **Lock to React 19.1.0 exactly for RN 0.81.4 compatibility**
+- ✅ Testing library compatibility issues? → **Deferred React Native Testing Library, using Jest for unit tests**
+
+### For PRD 03 (Upcoming)
+- ❓ Should messages be paginated from the start? → Limit to 100 most recent?
+- ❓ How to handle message deduplication between SQLite and Firestore?
+- ❓ What's the best way to achieve 60 FPS scrolling with FlatList?
+- ❓ Should we implement typing indicators in MVP?
 
 ## Next Session Prep
 
@@ -204,16 +239,25 @@ Currently using:
 
 ---
 
-**Next Action:** Start PRD 02 - Authentication System  
-**Expected Duration:** 3 hours  
-**Goal:** Users can sign up, sign in, and sign out with email/password and Google
+**Next Action:** Start PRD 03 - Core One-on-One Messaging  
+**Expected Duration:** 5 hours  
+**Goal:** Users can send and receive real-time messages with offline support
 
 **Key Files to Create:**
-- `src/services/firebase/auth.ts` - Auth service
-- `app/auth/signin.tsx` - Sign In screen
-- `app/auth/signup.tsx` - Sign Up screen
-- `app/index.tsx` - Home screen (protected)
-- `src/contexts/AuthContext.tsx` - Auth state management
+- `src/services/firebase/firestoreService.ts` - Firestore CRUD operations
+- `src/services/sqlite/sqliteService.ts` - Local database operations
+- `src/services/messaging/messageService.ts` - Message business logic
+- `app/(tabs)/index.tsx` - Conversations list (update placeholder)
+- `app/chat/[id].tsx` - Chat screen with message history
+- `src/components/chat/MessageBubble.tsx` - Individual message component
+- `src/components/chat/MessageInput.tsx` - Message input field
+- `src/utils/messageUtils.ts` - Message formatting utilities
+
+**Key Decisions Needed:**
+- Firestore schema for `conversations` and `messages` collections
+- SQLite schema for local caching
+- Message pagination strategy (initial: 100 most recent)
+- FlatList optimization approach for 60 FPS target
 
 
 

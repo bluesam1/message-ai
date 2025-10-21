@@ -7,4 +7,10 @@ alwaysApply: false
 ---
 
 # Code Quality
-[Full content from earlier]
+
+- Prefer pure functions; isolate side effects.
+- No unused exports; keep modules focused (single responsibility).
+- Avoid silent `catch`; log with context and surface user-safe errors.
+- Discouraged use of `any` and implicit `any`.
+- Keep files <300 lines and components <200 lines unless justified.
+- Prefer composition over inheritance; avoid static singletons except for DI wrappers.

@@ -8,8 +8,8 @@
 // Load environment variables from .env file for tests
 require('dotenv').config();
 
-// Import React Native Testing Library matchers
-import '@testing-library/jest-native/extend-expect';
+// Note: React Native Testing Library removed due to React 19.2.0 requirement conflict
+// Using Jest's built-in matchers for now
 
 // Mock Expo modules
 jest.mock('expo-sqlite', () => ({

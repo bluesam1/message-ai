@@ -2,10 +2,10 @@
 
 ## Overall Status
 
-**Current Phase:** PRD 01 Complete, PRD 02 Ready to Start  
+**Current Phase:** PRD 02 Complete ✅ - Ready for PRD 03 (Core Messaging)  
 **Started:** October 21, 2025  
 **Target Completion:** 24 hours from implementation start  
-**Estimated Progress:** 5% (Infrastructure complete, features pending)
+**Estimated Progress:** 25% (Infrastructure + Authentication complete)
 
 ---
 
@@ -55,23 +55,38 @@
 
 ---
 
-### PRD 02: Authentication System (0%)
+### PRD 02: Authentication System (100% Complete) ✅
 **Timeline:** Hours 2-5  
-**Status:** NOT STARTED
+**Status:** COMPLETE  
+**Completed:** October 21, 2025
 
 #### Checklist
-- [ ] Login screen created
-- [ ] Registration screen created
-- [ ] Email/password registration works
-- [ ] Email/password login works
-- [ ] Google Sign-In implemented
-- [ ] User profile creation in Firestore
-- [ ] Auth state management (Context)
-- [ ] Navigation between auth/main app
-- [ ] Sign out functionality
-- [ ] Error handling for auth failures
+- [x] Login screen created
+- [x] Registration screen created
+- [x] Email/password registration works
+- [x] Email/password login works
+- [x] Google Sign-In implemented
+- [x] User profile creation in Firestore
+- [x] Auth state management (Context)
+- [x] Navigation between auth/main app
+- [x] Sign out functionality
+- [x] Error handling for auth failures
 
-**Blockers:** Depends on PRD 01 completion
+**Key Implementations:**
+- Email/password authentication with validation
+- Google OAuth flow using expo-auth-session
+- AuthContext for global auth state management
+- Expo Router navigation with auth protection
+- User profile service with Firestore integration
+- Error mapping utilities for user-friendly messages
+- Unit tests for validation and error handling (29/29 passing)
+
+**Challenges Overcome:**
+- React version compatibility issues (required exact React 19.1.0 for RN 0.81.4)
+- Environment variable loading (Metro cache clearing required)
+- Testing library compatibility (deferred to later phase)
+
+**Blockers:** None
 
 ---
 
@@ -262,6 +277,17 @@
   - Project structure defined
   - .cursor/rules created for project standards
 
+### Milestone 2: Authentication Complete ✅
+- **Date:** October 21, 2025
+- **Definition of Done:** ALL CRITERIA MET
+  - [x] Users can register with email/password
+  - [x] Users can sign in with Google
+  - [x] Auth state persists across restarts
+  - [x] Profile created in Firestore
+  - [x] Navigation between auth/main app works
+  - [x] Error handling and validation implemented
+  - [x] Unit tests passing (29/29)
+
 ---
 
 ## Upcoming Milestones
@@ -351,6 +377,8 @@
 ## Decision Log
 
 ### October 21, 2025
+
+#### Project Setup (PRD 01)
 - **Decision:** Use Context API for state management (not Zustand)
   - **Rationale:** Simpler for MVP scope, can migrate later if needed
   
@@ -362,6 +390,22 @@
   
 - **Decision:** Test mode for Firestore security rules initially
   - **Rationale:** Proper security rules take time, implement after core features work
+
+#### Authentication (PRD 02)
+- **Decision:** Use Firebase's default auth persistence (no AsyncStorage)
+  - **Rationale:** Firebase Auth automatically handles session persistence on React Native, no additional dependencies needed
+  
+- **Decision:** Lock to React 19.1.0 exactly (not 19.2.0)
+  - **Rationale:** React Native 0.81.4 requires React 19.1.0 precisely; 19.2.0 causes incompatibility errors
+  
+- **Decision:** Use Expo's package manager for all Expo packages
+  - **Rationale:** `npx expo install` ensures SDK compatibility, prevents version mismatches
+  
+- **Decision:** Defer React Native Testing Library integration
+  - **Rationale:** Testing libraries require React 19.2.0 which conflicts with RN 0.81.4; focus on Jest-based unit tests for now
+  
+- **Decision:** Always clear Metro cache after `.env` changes
+  - **Rationale:** Metro doesn't automatically detect `.env` updates; `--clear` flag forces reload
 
 ---
 

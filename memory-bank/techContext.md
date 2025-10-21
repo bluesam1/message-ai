@@ -5,7 +5,9 @@
 ### Frontend
 
 **React Native + Expo**
-- **Version:** Expo SDK ~50.x
+- **Version:** Expo SDK ~54.0 (specifically 54.0.13)
+- **React Native Version:** 0.81.4
+- **React Version:** 19.1.0 (exact - required by RN 0.81.4)
 - **Why:** Cross-platform (iOS + Android) from single codebase, managed workflow simplifies setup
 - **Key Features Used:**
   - Expo Router (file-based navigation)
@@ -13,15 +15,18 @@
   - Expo Notifications (push notifications)
   - Expo ImagePicker (image selection)
   - Expo ImageManipulator (image compression)
+  - Expo Auth Session (Google OAuth)
+  - Expo Web Browser (OAuth flow support)
 
 **TypeScript**
-- **Version:** ~5.x
+- **Version:** ~5.9.2
 - **Why:** Type safety catches bugs early, better IDE support, self-documenting code
 - **Configuration:** Strict mode enabled
 
 **State Management**
 - **Primary:** React Context API
 - **Why:** Sufficient for MVP scope, no need for Redux/Zustand complexity
+- **Implementation:** AuthContext for global auth state
 - **Future:** May migrate to Zustand if state management becomes complex
 
 ### Backend (Firebase)
@@ -94,29 +99,40 @@
 ```json
 {
   "dependencies": {
-    "expo": "~50.x",
-    "expo-router": "~3.x",
-    "expo-sqlite": "~13.x",
-    "expo-notifications": "~0.27.x",
-    "expo-image-picker": "~14.x",
-    "expo-image-manipulator": "~11.x",
-    "firebase": "^10.x",
-    "react-native": "0.73.x",
-    "react": "18.x",
-    "@react-native-async-storage/async-storage": "^1.x",
-    "@react-native-community/netinfo": "^11.x"
+    "expo": "~54.0.0",
+    "expo-auth-session": "~7.0.0",
+    "expo-dev-client": "~6.0.0",
+    "expo-image": "~3.0.0",
+    "expo-image-picker": "~17.0.0",
+    "expo-notifications": "~0.32.0",
+    "expo-router": "~6.0.0",
+    "expo-sqlite": "~16.0.0",
+    "expo-status-bar": "~3.0.0",
+    "expo-web-browser": "~15.0.0",
+    "firebase": "^12.4.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.4",
+    "@react-native-community/netinfo": "^11.4.1"
   },
   "devDependencies": {
-    "@types/jest": "^29.x",
-    "@types/react": "^18.x",
-    "@testing-library/react-native": "^12.x",
-    "husky": "^8.x",
-    "jest": "^29.x",
-    "lint-staged": "^15.x",
-    "typescript": "^5.x"
+    "@types/jest": "^30.0.0",
+    "@types/react": "~19.1.0",
+    "dotenv": "^17.2.3",
+    "husky": "^9.1.7",
+    "jest": "^29.7.0",
+    "jest-expo": "^54.0.12",
+    "lint-staged": "^16.2.5",
+    "typescript": "~5.9.2"
   }
 }
 ```
+
+**Important Version Notes:**
+- **React 19.1.0 is required** - React Native 0.81.4 will not work with React 19.2.0
+- **All Expo packages use `~` versioning** - Ensures SDK 54 compatibility
+- **Testing libraries temporarily removed** - `@testing-library/react-native` requires React 19.2.0
+- **Use `npx expo install`** for any new Expo packages to maintain compatibility
 
 ## Development Environment
 
@@ -480,6 +496,44 @@ eas build --platform ios --profile development
 **Issue:** "The process cannot access the file" errors  
 **Root Cause:** Multiple Gradle daemons or locked files  
 **Solution:** Stop all Gradle processes before rebuilding (see Windows Development Setup above)
+
+### React Version Incompatibility ✅ SOLVED
+**Issue:** `Incompatible React versions: react 19.2.0 and react-native-renderer 19.1.0`  
+**Root Cause:** React Native 0.81.4 requires React 19.1.0 exactly, but npm installed 19.2.0  
+**Solution:**
+```bash
+# 1. Update package.json to lock React version
+"react": "19.1.0",
+"react-dom": "19.1.0",
+"@types/react": "~19.1.0"
+
+# 2. Clean install
+rm -rf node_modules package-lock.json
+npm install
+
+# 3. Verify versions match
+npm list react react-native
+```
+**Prevention:** Always check React Native release notes for exact React version requirements
+
+### Environment Variables Not Loading ✅ SOLVED
+**Issue:** Firebase config errors even with correct `.env` file  
+**Root Cause:** Metro bundler caches environment variables and doesn't auto-reload on `.env` changes  
+**Solution:**
+```bash
+# Always clear cache after changing .env
+npm start -- --clear --reset-cache
+```
+**Prevention:** Document that Metro restart with `--clear` is required after `.env` changes
+
+### Testing Library Conflicts
+**Issue:** `@testing-library/react-native` requires React 19.2.0, conflicts with RN 0.81.4  
+**Root Cause:** Testing libraries update faster than React Native stable releases  
+**Solution:** 
+- Removed testing libraries temporarily
+- Focus on Jest unit tests for utilities and business logic
+- Will re-add when compatible versions available or when upgrading React Native
+**Prevention:** Check peer dependency compatibility before adding testing libraries
 
 ## Future Technical Considerations
 

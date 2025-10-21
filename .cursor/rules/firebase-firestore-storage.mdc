@@ -8,4 +8,18 @@ alwaysApply: false
 ---
 
 # Firebase Rules (Project)
-[Full content from earlier]
+
+## Setup & Config
+- Env via Expo `EXPO_PUBLIC_*` for client config only—no secrets. :contentReference[oaicite:12]{index=12}
+- Collections: `users`, `conversations`, `messages` with defined fields; respect shapes in PRD. :contentReference[oaicite:13]{index=13}
+
+## Read/Write Patterns
+- Batch or limit Firestore queries (≤100 msgs per page). :contentReference[oaicite:14]{index=14}
+- Cache-first: write/read through SQLite, then sync Firestore in background.
+- Debounce presence/typing updates (~300ms) to avoid rate limits. :contentReference[oaicite:15]{index=15}
+
+## Storage
+- Compress images before upload; include progress and error states.
+
+## Notifications
+- Foreground notifications only for MVP; background/remote later. :contentReference[oaicite:16]{index=16}

@@ -10,4 +10,19 @@ alwaysApply: false
 ---
 
 # TypeScript + Jest (+ Detox)
-[Full content from earlier]
+
+## TypeScript
+- Strict mode on; prefer explicit return types on exported functions.
+- Avoid `any`; use discriminated unions and branded ids for domain entities.
+
+## Unit Testing (Jest)
+- What to test: message utils, offline queue, validation, business logic. :contentReference[oaicite:7]{index=7}
+- Don’t test: UI rendering, Firebase SDK calls, or navigation glue. :contentReference[oaicite:8]{index=8}
+- Coverage goals: 70%+ overall; Utilities 80%+, Business Logic 70%+, Services 60%+. :contentReference[oaicite:9]{index=9}
+- Tests must complete <30s; fail fast if slower. Enforce via pre-commit. :contentReference[oaicite:10]{index=10}
+
+## E2E (optional)
+- If adding Detox later, scope to the **happy path** for chat send/receive and auth only (keep within the 24-hour budget).
+
+## Tooling
+- Scripts: `test`, `test:watch`, `test:coverage` defined and used in CI & pre-commit. :contentReference[oaicite:11]{index=11}
