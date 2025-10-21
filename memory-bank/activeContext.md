@@ -1,10 +1,10 @@
 # Active Context
 
 ## Current Status
-**Phase:** PRD 03 Complete ✅ - Ready for PRD 04 (Offline Support)  
+**Phase:** PRD 04 Complete ✅ - Offline Support & Sync Implemented  
 **Date:** October 21, 2025  
-**Branch:** prd-03-messaging  
-**App Status:** Building and running on Android ✅ - Core messaging fully functional
+**Branch:** prd-04-offline-sync  
+**App Status:** Requires development build (not Expo Go compatible) - Core messaging + offline support complete
 
 ## What Just Happened
 
@@ -46,6 +46,22 @@
 13. **Firebase Configuration:** Firestore rules and indexes configured for deployment
 14. **Database Init:** SQLite initialization in all relevant screens
 
+### ✅ Completed (PRD 04 - Offline Support & Sync)
+1. **Network Service:** Real-time connectivity monitoring with NetInfo, listener pattern for state changes
+2. **Offline Queue:** SQLite-based pending messages table with retry count tracking
+3. **Offline Queue Service:** Add/remove/get pending messages, retry count management (7 functions)
+4. **Sync Service:** Automatic sync on reconnect with duplicate prevention and exponential backoff
+5. **Message Deduplication:** Utility functions for merging and deduplicating message lists
+6. **Network Status Hook:** useNetworkStatus provides isOnline and isConnecting states to components
+7. **Offline Banner:** Animated UI component showing "Offline", "Reconnecting", or "Back online"
+8. **Message Status Icons:** Pending, sent, delivered, and failed indicators in MessageBubble
+9. **SQLite Integration:** pendingMessages table with indexes for efficient querying
+10. **Message Service Updates:** Offline-aware sending with queue fallback
+11. **Root Layout Integration:** Network service initialized in app/_layout.tsx with sync trigger
+12. **Conversation List Updates:** Display pending message counts for offline messages
+13. **Unit Tests:** 49 additional tests for network, queue, sync, and deduplication (128 total passing)
+14. **Type Safety:** Full TypeScript coverage with proper boolean type handling
+
 ### 📋 Feature PRDs Created
 All PRDs are in `/tasks` directory:
 
@@ -61,22 +77,21 @@ All PRDs are in `/tasks` directory:
 ## Current Focus
 
 ### Immediate Next Steps
-**PRIORITY:** Deploy Firebase configuration and prepare for PRD 04 (Offline Support)
+**PRIORITY:** Commit PRD 04 and prepare for PRD 05 (Group Chat)
 
 #### Next Actions
-1. Deploy Firestore indexes: `firebase deploy --only firestore`
-2. Test messaging functionality end-to-end
-3. Commit PRD 03 implementation to git
-4. Begin PRD 04 planning - Offline Support & Sync
+1. Commit PRD 04 implementation to git
+2. Test on Android development build (iOS requires dev build, not Expo Go)
+3. Begin PRD 05 planning - Group Chat
+4. Consider iOS development build strategy (EAS Build)
 
-#### PRD 04 Goals (Upcoming)
-- Detect network status with NetInfo
-- Queue messages when offline
-- Automatically sync when reconnecting
-- Implement deduplication logic
-- Add retry mechanism with exponential backoff
-- Display offline banner to users
-- Achieve <100ms sync trigger on reconnect
+#### PRD 05 Goals (Upcoming)
+- Create groups with 3+ participants
+- Add members by email lookup
+- Group conversation creation
+- Group message broadcasting
+- Group info screen with member list
+- Validation for minimum participants
 
 ## Active Decisions
 
@@ -190,6 +205,18 @@ PRD 08 (Notifications) ────┘  ← Can develop in parallel
 8. **npm Script Convention:** Adding "clean" and "rebuild" scripts improves developer experience
 9. **Component Testing Limitations:** React Native Testing Library has peer dependency constraints - defer to later
 10. **Firebase Configuration Files:** Keep firebase.json, firestore.rules, firestore.indexes.json in root
+
+### From PRD 04 Implementation
+1. **Expo Go Limitations:** Apps with expo-dev-client, expo-notifications, expo-image-picker, and @react-native-community/netinfo REQUIRE development builds - Expo Go will not work
+2. **Boolean Type Safety:** React Native iOS has strict native prop type checking - avoid unnecessary Boolean() wrapping, let TypeScript handle types
+3. **NetInfo Integration:** @react-native-community/netinfo works seamlessly with React hooks pattern for network monitoring
+4. **Offline Queue Pattern:** SQLite pending messages table + service layer provides reliable queue with retry tracking
+5. **Sync Deduplication:** Check message existence in Firestore before upload prevents duplicates during sync
+6. **Exponential Backoff:** Start at 1s, double each retry (2s, 4s, 8s), cap at 5 retries for failed message uploads
+7. **Listener Pattern:** networkService.subscribe() allows multiple components to react to connectivity changes
+8. **Testing Network Services:** Mock NetInfo.addEventListener in tests to simulate network state changes
+9. **iOS Development on Windows:** Use EAS Build cloud service for iOS builds (free for simulator, $99/year Apple Developer for device)
+10. **Pre-existing Issues:** Always verify bugs exist on main branch before attributing to new changes
 
 ### From PRD Analysis
 1. **Test Coverage Focus:** Focus tests on utils and business logic, skip UI/Firebase tests ✅ VALIDATED

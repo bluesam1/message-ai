@@ -138,11 +138,11 @@ export default function MessageList({
       data={messages}
       renderItem={renderMessageItem}
       keyExtractor={keyExtractor}
-      inverted={true}
+      inverted
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
       // Performance optimizations
-      removeClippedSubviews={true}
+      removeClippedSubviews
       maxToRenderPerBatch={10}
       windowSize={10}
       initialNumToRender={20}
@@ -159,11 +159,6 @@ export default function MessageList({
         ) : undefined
       }
       ListEmptyComponent={renderEmptyComponent}
-      // Maintain visible content position
-      maintainVisibleContentPosition={{
-        minIndexForVisible: 0,
-        autoscrollToTopThreshold: 100,
-      }}
     />
   );
 }

@@ -13,7 +13,8 @@ import {
   listenToMessages,
   retryMessage as retryMessageService,
 } from '../services/messaging/messageService';
-import { deduplicateMessages, sortMessagesByTimestamp } from '../utils/messageUtils';
+import { sortMessagesByTimestamp } from '../utils/messageUtils';
+import { mergeMessageLists } from '../utils/messageDeduplication';
 
 interface UseMessagesReturn {
   messages: Message[];
@@ -62,10 +63,9 @@ export default function useMessages(
 
         // Step 2: Set up real-time listener for live updates
         unsubscribe = listenToMessages(conversationId, (liveMessages) => {
-          // Merge cached and live messages, remove duplicates
-          const allMessages = [...cachedMessages, ...liveMessages];
-          const uniqueMessages = deduplicateMessages(allMessages);
-          const sorted = sortMessagesByTimestamp(uniqueMessages).reverse();
+          // Merge cached and live messages (live messages override cached)
+          const mergedMessages = mergeMessageLists(cachedMessages, liveMessages);
+          const sorted = sortMessagesByTimestamp(mergedMessages).reverse();
           
           setMessages(sorted);
           setLoading(false);

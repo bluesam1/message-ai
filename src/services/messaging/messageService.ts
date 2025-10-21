@@ -21,6 +21,8 @@ import { Message, MessageStatus } from '../../types/message';
 import { generateMessageId } from '../../utils/messageUtils';
 import * as sqliteService from '../sqlite/sqliteService';
 import * as conversationService from './conversationService';
+import { networkService } from '../network/networkService';
+import * as offlineQueueService from './offlineQueueService';
 
 /**
  * Send a message with optimistic UI update
@@ -62,7 +64,15 @@ export async function sendMessage(
     await sqliteService.saveMessage(message);
     console.log('[MessageService] Message saved to SQLite (optimistic):', messageId);
 
-    // Step 2: Upload to Firestore
+    // Step 2: Check if online
+    if (!networkService.isOnline()) {
+      // Offline: Add to queue and return with pending status
+      console.log('[MessageService] Offline - adding message to queue:', messageId);
+      await offlineQueueService.addToQueue(message);
+      return message; // Return with pending status
+    }
+
+    // Step 3: Upload to Firestore (online)
     const messageRef = doc(db, 'messages', messageId);
     await setDoc(messageRef, {
       conversationId,
@@ -75,12 +85,12 @@ export async function sendMessage(
       createdAt: Timestamp.fromMillis(timestamp),
     });
 
-    // Step 3: Update status to 'sent'
+    // Step 4: Update status to 'sent'
     message.status = 'sent';
     await sqliteService.updateMessageStatus(messageId, 'sent');
     console.log('[MessageService] Message uploaded to Firestore:', messageId);
 
-    // Step 4: Update conversation's last message
+    // Step 5: Update conversation's last message
     await conversationService.updateConversationLastMessage(
       conversationId,
       text.trim(),
@@ -91,11 +101,12 @@ export async function sendMessage(
   } catch (error) {
     console.error('[MessageService] Failed to send message:', error);
 
-    // Update status to 'failed'
-    message.status = 'failed';
-    await sqliteService.updateMessageStatus(messageId, 'failed');
+    // Add to offline queue for retry
+    await offlineQueueService.addToQueue(message);
+    console.log('[MessageService] Message added to offline queue for retry:', messageId);
 
-    throw error;
+    // Keep status as pending (will be retried)
+    return message;
   }
 }
 
