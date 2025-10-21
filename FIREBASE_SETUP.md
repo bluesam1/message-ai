@@ -155,7 +155,32 @@ If you see errors about missing environment variables, double-check your `.env` 
 - ✅ `GoogleService-Info.plist` (in project root)
 - ✅ `src/config/firebase.ts` (already created)
 
-**IMPORTANT:** These files contain secrets! They are already in `.gitignore` and should NEVER be committed to git.
+## ⚠️ IMPORTANT: Do NOT Commit These Files!
+
+These Firebase configuration files are **already in `.gitignore`** and should **NEVER be committed** to git:
+
+- ❌ `.env` - Contains your actual Firebase credentials
+- ❌ `google-services.json` - Android Firebase configuration
+- ❌ `GoogleService-Info.plist` - iOS Firebase configuration
+
+**Why?**
+- While Firebase API keys aren't technically "secret" (they're in your compiled app), keeping them out of git:
+  - Prevents exposing your project structure publicly
+  - Avoids potential quota abuse
+  - Follows security best practices
+  - Protects OAuth client IDs
+
+**What's Safe to Commit?**
+- ✅ `.env.template` - Template with no actual keys
+- ✅ `app.json` - App configuration (package names are public)
+- ✅ `src/config/firebase.ts` - Code that reads from .env (no hardcoded keys)
+
+**For Team Members:**
+Each developer should:
+1. Download their own copies of `google-services.json` and `GoogleService-Info.plist` from Firebase Console
+2. Create their own `.env` file from `.env.template`
+3. Place all three files in the project root
+4. Verify they're listed in `.gitignore` and not staged for commit
 
 ---
 

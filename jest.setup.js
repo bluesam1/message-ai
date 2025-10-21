@@ -5,6 +5,9 @@
  * Use it to configure testing environment, add custom matchers, or set up global mocks.
  */
 
+// Load environment variables from .env file for tests
+require('dotenv').config();
+
 // Import React Native Testing Library matchers
 import '@testing-library/jest-native/extend-expect';
 
