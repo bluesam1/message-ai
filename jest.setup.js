@@ -14,6 +14,13 @@ require('dotenv').config();
 // Mock Expo modules
 jest.mock('expo-sqlite', () => ({
   openDatabase: jest.fn(),
+  openDatabaseAsync: jest.fn(() => Promise.resolve({
+    execAsync: jest.fn(() => Promise.resolve()),
+    runAsync: jest.fn(() => Promise.resolve()),
+    getAllAsync: jest.fn(() => Promise.resolve([])),
+    getFirstAsync: jest.fn(() => Promise.resolve(null)),
+    closeAsync: jest.fn(() => Promise.resolve()),
+  })),
 }));
 
 jest.mock('expo-notifications', () => ({
