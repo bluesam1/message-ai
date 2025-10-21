@@ -467,6 +467,76 @@ async function retryOperation(
 }
 ```
 
+## Configuration Patterns
+
+### Firebase Configuration (Environment Variables)
+
+**Pattern:** Store Firebase config in environment variables, validate on initialization
+
+**Implementation:**
+```typescript
+// src/config/firebase.ts
+const firebaseConfig = {
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
+};
+
+// Validate before initializing
+const validateConfig = () => {
+  const required = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+  const missing = required.filter((key) => !firebaseConfig[key]);
+  if (missing.length > 0) {
+    throw new Error('Firebase configuration incomplete. Check .env file.');
+  }
+};
+```
+
+**Security:**
+- `.env` file is in `.gitignore` (never commit!)
+- `google-services.json` and `GoogleService-Info.plist` also in `.gitignore`
+- Use `.env.template` to document required variables
+- Team members download config files from Firebase Console individually
+
+**Why:**
+- Keeps secrets out of version control
+- Easy to switch between environments (dev/staging/prod)
+- Clear validation of required configuration
+
+### Native Configuration Files
+
+**Pattern:** Use Firebase auto-generated config files for native modules
+
+**Files:**
+- `google-services.json` (Android) - Place in project root
+- `GoogleService-Info.plist` (iOS) - Place in project root
+
+**app.json Configuration:**
+```json
+{
+  "expo": {
+    "ios": {
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "googleServicesFile": "./google-services.json"
+    },
+    "plugins": [
+      "@react-native-google-signin/google-signin"
+    ]
+  }
+}
+```
+
+**Why:**
+- OAuth client IDs are auto-generated when you add iOS/Android apps
+- No need to manually create OAuth credentials in Google Cloud Console
+- Simpler setup, fewer moving parts
+
 ## Security Patterns
 
 ### Firestore Security Rules (Coming Soon)

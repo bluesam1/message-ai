@@ -166,6 +166,7 @@
   EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
   EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
   EXPO_PUBLIC_FIREBASE_APP_ID=
+  EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=  # Optional: for Analytics
   ```
 
 **Google OAuth Setup**
@@ -349,7 +350,7 @@ eas submit --platform android
 
 **Required in .env:**
 ```bash
-# Firebase
+# Firebase (Required)
 EXPO_PUBLIC_FIREBASE_API_KEY=
 EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
 EXPO_PUBLIC_FIREBASE_PROJECT_ID=
@@ -357,9 +358,11 @@ EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
 EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 EXPO_PUBLIC_FIREBASE_APP_ID=
 
-# Optional
+# Firebase (Optional)
+EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=  # For Firebase Analytics
+
+# Post-MVP
 EXPO_PUBLIC_SENTRY_DSN=        # Error tracking (post-MVP)
-EXPO_PUBLIC_ANALYTICS_ID=      # Analytics (post-MVP)
 ```
 
 **Access in code:**
@@ -373,11 +376,90 @@ const firebaseConfig = {
 };
 ```
 
+## Windows Development Setup
+
+### Required Environment Variables
+
+**JAVA_HOME:**
+Windows requires `JAVA_HOME` to be set for Android builds. Android Studio includes a JDK at:
+```
+C:\Program Files\Android\Android Studio\jbr
+```
+
+Set permanently:
+```bash
+setx JAVA_HOME "C:\Program Files\Android\Android Studio\jbr"
+```
+
+Add to PATH (restart terminal after):
+```bash
+setx PATH "%PATH%;%JAVA_HOME%\bin"
+```
+
+**Verify:**
+```bash
+echo $JAVA_HOME
+java -version
+```
+
+### Common Windows Issues
+
+**Gradle File Locking:**
+```bash
+cd android
+./gradlew --stop
+cd ..
+taskkill //F //IM java.exe
+```
+
+**Port Already in Use:**
+```bash
+# Find process on port 8081
+netstat -ano | grep ":8081"
+
+# Kill process
+taskkill //F //PID <process-id>
+```
+
+**Git Bash Path Issues:**
+Use forward slashes in Git Bash:
+```bash
+# Good
+cd /c/Users/SamExel/repos/message-ai
+
+# Bad
+cd C:\Users\SamExel\repos\message-ai
+```
+
+### Development Build Requirements
+
+**Must use development build (not Expo Go) because:**
+- Firebase requires native modules
+- Google Sign-In requires native configuration
+- expo-dev-client provides development build with native modules
+
+**First build takes 5-6 minutes, subsequent builds are faster**
+
+```bash
+# Build and run on Android
+npx expo run:android
+
+# This:
+# 1. Generates native Android project
+# 2. Installs expo-dev-client
+# 3. Compiles native modules
+# 4. Installs on emulator
+# 5. Starts Metro bundler
+```
+
 ## Known Issues & Workarounds
 
-### iOS on Windows
+### iOS on Windows ✅ SOLVED
 **Issue:** Cannot build iOS locally on Windows  
 **Workaround:** Use EAS Build cloud service
+```bash
+eas build --platform ios --profile development
+```
 
 ### HEIC Images
 **Issue:** iOS uses HEIC format by default  
@@ -393,6 +475,11 @@ const firebaseConfig = {
 - Use local cache aggressively
 - Batch operations
 - Monitor usage in Firebase console
+
+### Gradle Build Failures
+**Issue:** "The process cannot access the file" errors  
+**Root Cause:** Multiple Gradle daemons or locked files  
+**Solution:** Stop all Gradle processes before rebuilding (see Windows Development Setup above)
 
 ## Future Technical Considerations
 
