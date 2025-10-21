@@ -8,4 +8,26 @@ alwaysApply: false
 ---
 
 # React Native + Expo (Project Rules)
-[Full content from earlier]
+
+## Architecture
+- Prefer functional components + hooks; no class components.
+- Organize by **feature** (screen, subcomponents, hooks, styles).
+- Navigation: use Expo Router or React Navigation; keep screens thin and move logic to hooks/services.
+
+## State & Data
+- Keep state simple (Context/Zustand ok). Avoid complex global state for MVP.
+- Cache-first data flow: SQLite → UI → background Firestore sync.
+- Optimistic UI on send; reconcile with server on ack. (See PRD “Core Architecture” data flow.) :contentReference[oaicite:2]{index=2}
+
+## Performance (must-have)
+- Message list: `FlatList` with `removeClippedSubviews`, tuned `windowSize`/`maxToRenderPerBatch`.
+- Target: open conversation <100ms; typing feels instant; scrolling 60 FPS. Stop and fix if over budget. :contentReference[oaicite:3]{index=3}
+
+## Images & Media
+- Compress before upload (≤1920px, ≈80% quality). :contentReference[oaicite:4]{index=4}
+
+## Platform
+- Use Expo modules when possible (Notifications, ImagePicker, SQLite). Prefer EAS builds for iOS on Windows. :contentReference[oaicite:5]{index=5}
+
+## Don’ts (MVP)
+- Don’t build bespoke UI systems or fancy animations; use defaults. :contentReference[oaicite:6]{index=6}

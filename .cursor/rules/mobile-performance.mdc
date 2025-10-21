@@ -8,4 +8,8 @@ alwaysApply: false
 ---
 
 # Performance Budgets
-[Full content from earlier]
+
+- Targets: UI send <50–100ms, open conversation <100–200ms, nav <200–300ms, scrolling 60 FPS, launch <1.5–2.5s. If over max, stop and fix. :contentReference[oaicite:17]{index=17}
+- Lists: use `keyExtractor`, `getItemLayout` (when feasible), memoized rows (`React.memo`), stable callbacks (`useCallback`).
+- Avoid unnecessary state in parents; prefer derived props and `useMemo`.
+- Avoid deep object props that cause re-renders; prefer ids/primitive props.
