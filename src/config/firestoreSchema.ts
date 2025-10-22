@@ -125,8 +125,9 @@
  * 
  * Path: /users/{userId}
  * 
- * Purpose: Stores user profile information
+ * Purpose: Stores user profile information and presence status
  * (Documented in PRD 02 - Authentication System)
+ * (Presence documented in PRD 06 - Read Receipts & Presence)
  * 
  * Schema:
  * {
@@ -134,8 +135,9 @@
  *   email: string            // User email address
  *   displayName: string      // User display name
  *   photoURL: string | null  // Profile photo URL
+ *   online: boolean          // Whether user is currently online
+ *   lastSeen: timestamp      // Last activity timestamp (updated when user goes offline)
  *   createdAt: timestamp     // Account creation timestamp
- *   lastSeen: timestamp      // Last activity timestamp
  * }
  * 
  * Indexes:
@@ -143,8 +145,14 @@
  * - displayName - For user search by name
  * 
  * Security Rules:
- * - All authenticated users can read user documents (for displaying names/photos)
- * - Users can only update their own document
+ * - All authenticated users can read user documents (for displaying names/photos/presence)
+ * - Users can only update their own document (including online status)
+ * 
+ * Presence Update Pattern:
+ * - online is set to true when user logs in or app becomes active
+ * - online is set to false when user logs out or after 30s of app being backgrounded
+ * - lastSeen is updated whenever online changes to false
+ * - Updates are debounced (300ms) to reduce Firestore writes
  */
 
 /**

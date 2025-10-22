@@ -12,8 +12,9 @@ export interface User {
   email: string;
   displayName: string;
   photoURL: string | null;
-  createdAt: number;
+  online: boolean;
   lastSeen: number;
+  createdAt: number;
 }
 
 /**

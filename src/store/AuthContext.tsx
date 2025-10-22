@@ -7,6 +7,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '../services/firebase/authService';
 import { AuthContextType, AuthUser } from '../types/auth';
+import { presenceService } from '../services/user/presenceService';
 
 // Create the context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +50,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Cleanup subscription
     return unsubscribe;
   }, []);
+
+  // Initialize presence when user is authenticated
+  useEffect(() => {
+    if (user?.uid) {
+      console.log('[AuthContext] Initializing presence for user:', user.uid);
+      presenceService.initialize(user.uid).catch((err) => {
+        console.error('[AuthContext] Failed to initialize presence:', err);
+      });
+    }
+  }, [user?.uid]);
 
   // Auth methods
   const signIn = async (email: string, password: string): Promise<void> => {
@@ -96,6 +107,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setError(null);
       if (user) {
+        // Set user offline immediately before signing out
+        presenceService.setOffline(user.uid, 0);
         await authService.signOut(user.uid);
       }
       // User state will be updated by onAuthStateChanged listener

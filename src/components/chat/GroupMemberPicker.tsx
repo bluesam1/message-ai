@@ -1,17 +1,9 @@
 /**
  * Group Member Picker Component
- * Allows adding members to a group by email address
- * 
- * MVP Implementation: Users must enter exact email addresses
- * 
- * Future Enhancement: Could add user search/browse functionality:
- * - Search users by name or email
- * - Browse all users with autocomplete
- * - Show user avatars and names in search results
- * - Select users from a list instead of typing emails
+ * Searchable user interface for adding members to groups
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,8 +12,19 @@ import {
   FlatList,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
-import { isValidEmail } from '../../utils/groupValidation';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  limit,
+} from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import { User } from '../../types/user';
 
 export interface PendingMember {
   email: string;
@@ -35,41 +38,148 @@ interface GroupMemberPickerProps {
   excludeEmails?: string[]; // Emails to exclude (e.g., current user, existing members)
 }
 
+/**
+ * Helper function to safely convert various timestamp formats to milliseconds
+ */
+function toMillis(timestamp: any): number {
+  if (!timestamp) {
+    return Date.now();
+  }
+  
+  if (typeof timestamp === 'number') {
+    return timestamp;
+  }
+  
+  if (timestamp && typeof timestamp.toMillis === 'function') {
+    return timestamp.toMillis();
+  }
+  
+  return Date.now();
+}
+
 export default function GroupMemberPicker({
   onMembersChange,
   initialMembers = [],
   excludeEmails = [],
 }: GroupMemberPickerProps) {
-  const [emailInput, setEmailInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<PendingMember[]>(initialMembers);
 
-  const handleAddMember = () => {
-    const trimmedEmail = emailInput.trim().toLowerCase();
-
-    // Validate email format
-    if (!isValidEmail(trimmedEmail)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+  /**
+   * Search users by email or display name
+   */
+  const searchUsers = async (term: string) => {
+    if (!term.trim()) {
+      setSearchResults([]);
       return;
     }
 
+    setLoading(true);
+
+    try {
+      const usersRef = collection(db, 'users');
+      const searchLower = term.toLowerCase();
+
+      // Search by email
+      const emailQuery = query(
+        usersRef,
+        where('email', '>=', searchLower),
+        where('email', '<=', searchLower + '\uf8ff'),
+        orderBy('email'),
+        limit(20)
+      );
+
+      const emailSnapshot = await getDocs(emailQuery);
+      const emailResults = emailSnapshot.docs
+        .map((doc) => ({
+          uid: doc.id,
+          email: doc.data().email,
+          displayName: doc.data().displayName,
+          photoURL: doc.data().photoURL || null,
+          online: doc.data().online || false,
+          createdAt: toMillis(doc.data().createdAt),
+          lastSeen: toMillis(doc.data().lastSeen),
+        }))
+        .filter((user) => 
+          !excludeEmails.includes(user.email.toLowerCase()) &&
+          !members.some(m => m.email.toLowerCase() === user.email.toLowerCase())
+        );
+
+      // Search by display name
+      const nameQuery = query(
+        usersRef,
+        where('displayName', '>=', term),
+        where('displayName', '<=', term + '\uf8ff'),
+        orderBy('displayName'),
+        limit(20)
+      );
+
+      const nameSnapshot = await getDocs(nameQuery);
+      const nameResults = nameSnapshot.docs
+        .map((doc) => ({
+          uid: doc.id,
+          email: doc.data().email,
+          displayName: doc.data().displayName,
+          photoURL: doc.data().photoURL || null,
+          online: doc.data().online || false,
+          createdAt: toMillis(doc.data().createdAt),
+          lastSeen: toMillis(doc.data().lastSeen),
+        }))
+        .filter((user) => 
+          !excludeEmails.includes(user.email.toLowerCase()) &&
+          !members.some(m => m.email.toLowerCase() === user.email.toLowerCase())
+        );
+
+      // Combine and deduplicate results
+      const combinedResults = [...emailResults, ...nameResults];
+      const uniqueUsers = Array.from(
+        new Map(combinedResults.map((user) => [user.uid, user])).values()
+      );
+
+      setSearchResults(uniqueUsers);
+    } catch (err) {
+      console.error('[GroupMemberPicker] Search error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Debounced search effect
+   */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchUsers(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, members, excludeEmails]);
+
+  const handleAddMember = (user: User) => {
     // Check if email is excluded
-    if (excludeEmails.includes(trimmedEmail)) {
+    if (excludeEmails.includes(user.email.toLowerCase())) {
       Alert.alert('Cannot Add', 'This user is already included.');
       return;
     }
 
     // Check for duplicates
-    if (members.some((m) => m.email.toLowerCase() === trimmedEmail)) {
-      Alert.alert('Duplicate Email', 'This email has already been added.');
+    if (members.some((m) => m.email.toLowerCase() === user.email.toLowerCase())) {
+      Alert.alert('Duplicate User', 'This user has already been added.');
       return;
     }
 
     // Add member to list
-    const newMember: PendingMember = { email: trimmedEmail };
+    const newMember: PendingMember = { 
+      email: user.email,
+      id: user.uid,
+      displayName: user.displayName,
+    };
     const updatedMembers = [...members, newMember];
     setMembers(updatedMembers);
     onMembersChange(updatedMembers);
-    setEmailInput('');
+    setSearchTerm(''); // Clear search
   };
 
   const handleRemoveMember = (email: string) => {
@@ -95,53 +205,95 @@ export default function GroupMemberPicker({
     </View>
   );
 
+  /**
+   * Render search result item
+   */
+  const renderSearchResult = ({ item }: { item: User }) => (
+    <TouchableOpacity
+      style={styles.searchResultItem}
+      onPress={() => handleAddMember(item)}
+      activeOpacity={0.7}
+    >
+      {item.photoURL ? (
+        <Image source={{ uri: item.photoURL }} style={styles.avatar} />
+      ) : (
+        <View style={[styles.avatar, styles.avatarPlaceholder]}>
+          <Text style={styles.avatarText}>
+            {item.displayName?.charAt(0).toUpperCase() || '?'}
+          </Text>
+        </View>
+      )}
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>{item.displayName}</Text>
+        <Text style={styles.userEmail}>{item.email}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
-      <View style={styles.instructionsContainer}>
-        <Text style={styles.instructionsText}>
-          Enter email addresses of users you want to add to the group
-        </Text>
-      </View>
-      
-      <View style={styles.inputContainer}>
+      {/* Search Input */}
+      <View style={styles.searchContainer}>
         <TextInput
-          style={styles.input}
-          placeholder="user@example.com"
-          value={emailInput}
-          onChangeText={setEmailInput}
-          keyboardType="email-address"
+          style={styles.searchInput}
+          placeholder="Search users by name or email..."
+          value={searchTerm}
+          onChangeText={setSearchTerm}
           autoCapitalize="none"
           autoCorrect={false}
-          onSubmitEditing={handleAddMember}
-          returnKeyType="done"
+          autoFocus
         />
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleAddMember}
-          disabled={!emailInput.trim()}
-        >
-          <Text style={styles.addButtonText}>Add</Text>
-        </TouchableOpacity>
+        {loading && (
+          <ActivityIndicator
+            size="small"
+            color="#007AFF"
+            style={styles.loadingIndicator}
+          />
+        )}
       </View>
 
+      {/* Selected Members */}
       {members.length > 0 && (
-        <View style={styles.membersSection}>
-          <Text style={styles.membersSectionTitle}>
-            Members ({members.length})
+        <View style={styles.selectedSection}>
+          <Text style={styles.selectedTitle}>
+            Selected ({members.length})
           </Text>
           <FlatList
             data={members}
             renderItem={renderMember}
             keyExtractor={(item) => item.email}
-            style={styles.membersList}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.selectedList}
           />
         </View>
       )}
 
-      {members.length === 0 && (
+      {/* Search Results */}
+      {searchTerm.trim() !== '' && (
+        <View style={styles.resultsSection}>
+          {searchResults.length > 0 ? (
+            <FlatList
+              data={searchResults}
+              renderItem={renderSearchResult}
+              keyExtractor={(item) => item.uid}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            !loading && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No users found</Text>
+              </View>
+            )
+          )}
+        </View>
+      )}
+
+      {/* Empty State */}
+      {searchTerm.trim() === '' && members.length === 0 && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
-            No members added yet. Enter email addresses above.
+            Start typing to search for users
           </Text>
         </View>
       )}
@@ -152,100 +304,124 @@ export default function GroupMemberPicker({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-  instructionsContainer: {
-    padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  instructionsText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  inputContainer: {
+  searchContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
-    gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#E5E5E5',
   },
-  input: {
+  searchInput: {
     flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    height: 44,
+    paddingHorizontal: 16,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 10,
     fontSize: 16,
   },
-  addButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    justifyContent: 'center',
+  loadingIndicator: {
+    marginLeft: 12,
   },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
+  selectedSection: {
+    paddingVertical: 12,
+    paddingLeft: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+    backgroundColor: '#F8F9FA',
+  },
+  selectedTitle: {
+    fontSize: 14,
     fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  membersSection: {
-    flex: 1,
-    padding: 16,
-  },
-  membersSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#333',
-  },
-  membersList: {
-    flex: 1,
+  selectedList: {
+    flexGrow: 0,
   },
   memberItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    marginBottom: 8,
+    marginRight: 12,
+    width: 80,
   },
   memberInfo: {
-    flex: 1,
+    alignItems: 'center',
   },
   memberEmail: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-  memberName: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
     marginTop: 4,
+    textAlign: 'center',
+  },
+  memberName: {
+    fontSize: 12,
+    color: '#333',
+    fontWeight: '500',
+    textAlign: 'center',
   },
   removeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#FF3B30',
+    borderRadius: 4,
   },
   removeButtonText: {
-    color: '#FF3B30',
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  resultsSection: {
+    flex: 1,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+  },
+  avatarPlaceholder: {
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 4,
+  },
+  userEmail: {
     fontSize: 14,
-    fontWeight: '500',
+    color: '#8E8E93',
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    paddingVertical: 60,
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#999',
+    color: '#8E8E93',
     textAlign: 'center',
   },
 });

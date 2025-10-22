@@ -31,6 +31,8 @@ interface MessageListProps {
   userNames?: Record<string, string>;
   /** Map of user IDs to photo URLs */
   userPhotoURLs?: Record<string, string>;
+  /** Total number of participants (for group read receipts) */
+  totalParticipants?: number;
 }
 
 /**
@@ -45,6 +47,7 @@ export default function MessageList({
   onRetryMessage,
   userNames = {},
   userPhotoURLs = {},
+  totalParticipants,
 }: MessageListProps) {
   const flatListRef = useRef<FlatList>(null);
 
@@ -85,6 +88,25 @@ export default function MessageList({
     const senderPhotoURL = !isOwnMessage
       ? userPhotoURLs[item.senderId]
       : undefined;
+    
+    // Debug logging for sender info
+    if (!isOwnMessage && index === 0) {
+      console.log('[MessageList] Sender info debug:', {
+        senderId: item.senderId,
+        senderName,
+        senderPhotoURL,
+        availableUserNames: Object.keys(userNames),
+        availablePhotoURLs: Object.keys(userPhotoURLs),
+      });
+    }
+
+    // Calculate read status for read receipts
+    // For direct chats: Check if the other user has read (readBy includes them)
+    // For group chats: Check if at least one other person has read
+    const readBy = item.readBy || [];
+    const isRead = totalParticipants && totalParticipants > 2
+      ? readBy.length > 1 // Group: More than just sender
+      : readBy.some(uid => uid !== currentUserId); // Direct: Other person has read
 
     return (
       <MessageBubble
@@ -95,6 +117,8 @@ export default function MessageList({
         showTimestamp={true}
         isGrouped={isGrouped}
         onRetry={() => onRetryMessage?.(item)}
+        isRead={isRead}
+        totalParticipants={totalParticipants}
       />
     );
   };

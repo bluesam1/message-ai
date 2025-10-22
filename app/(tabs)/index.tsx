@@ -24,12 +24,19 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../src/config/firebase';
 import { User } from '../../src/types/user';
 import { initDatabase } from '../../src/services/sqlite/sqliteService';
+import PresenceIndicator from '../../src/components/users/PresenceIndicator';
+import { usePresenceUpdates } from '../../src/hooks/usePresenceUpdates';
 
 export default function ConversationsScreen() {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<ConversationWithParticipants[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Manage presence updates based on app state
+   */
+  usePresenceUpdates(user?.uid);
 
   /**
    * Initialize database on mount
@@ -60,7 +67,7 @@ export default function ConversationsScreen() {
               const userSnapshot = await getDocs(userQuery);
               
               if (!userSnapshot.empty) {
-                const userData = userSnapshot.docs[0].data() as User;
+                const userData = userSnapshot.docs[0].data();
                 return {
                   ...conv,
                   otherParticipantId,
@@ -173,6 +180,18 @@ export default function ConversationsScreen() {
             <Text style={styles.displayName}>{displayName}</Text>
             {timeAgo && <Text style={styles.timestamp}>{timeAgo}</Text>}
           </View>
+          
+          {/* Presence indicator for direct chats */}
+          {!isGroup && item.otherParticipantId && (
+            <View style={styles.presenceRow}>
+              <PresenceIndicator 
+                userId={item.otherParticipantId} 
+                showText={true}
+                size="small"
+                textStyle={styles.presenceText}
+              />
+            </View>
+          )}
           
           {/* Member count for groups */}
           {isGroup && (
@@ -313,6 +332,12 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 12,
     color: '#8E8E93',
+  },
+  presenceRow: {
+    marginBottom: 4,
+  },
+  presenceText: {
+    fontSize: 12,
   },
   memberCount: {
     fontSize: 12,
