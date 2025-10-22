@@ -25,18 +25,12 @@ import { db } from '../../src/config/firebase';
 import { User } from '../../src/types/user';
 import { initDatabase } from '../../src/services/sqlite/sqliteService';
 import PresenceIndicator from '../../src/components/users/PresenceIndicator';
-import { usePresenceUpdates } from '../../src/hooks/usePresenceUpdates';
 
 export default function ConversationsScreen() {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<ConversationWithParticipants[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  /**
-   * Manage presence updates based on app state
-   */
-  usePresenceUpdates(user?.uid);
 
   /**
    * Initialize database on mount

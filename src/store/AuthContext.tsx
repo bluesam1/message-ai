@@ -7,7 +7,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '../services/firebase/authService';
 import { AuthContextType, AuthUser } from '../types/auth';
-import { presenceService } from '../services/user/presenceService';
+import { rtdbPresenceService } from '../services/user/rtdbPresenceService';
 
 // Create the context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,13 +51,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return unsubscribe;
   }, []);
 
-  // Initialize presence when user is authenticated
+  // Initialize RTDB presence when user is authenticated
   useEffect(() => {
     if (user?.uid) {
-      console.log('[AuthContext] Initializing presence for user:', user.uid);
-      presenceService.initialize(user.uid).catch((err) => {
-        console.error('[AuthContext] Failed to initialize presence:', err);
-      });
+      console.log('[AuthContext] Initializing RTDB presence for user:', user.uid);
+      rtdbPresenceService.initialize(user.uid);
     }
   }, [user?.uid]);
 
@@ -104,15 +102,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const signOut = async (): Promise<void> => {
+    console.log('[AuthContext] signOut called, user:', user?.uid);
     try {
       setError(null);
       if (user) {
-        // Set user offline immediately before signing out
-        presenceService.setOffline(user.uid, 0);
+        console.log('[AuthContext] Starting logout sequence for user:', user.uid);
+        
+        // CRITICAL: Order matters to prevent race condition!
+        
+        // 1. FIRST: Stop listening to connection changes
+        //    This prevents the connection listener from overwriting our offline status
+        console.log('[AuthContext] Step 1: Cleaning up listeners');
+        rtdbPresenceService.cleanup();
+        
+        // 2. SECOND: Explicitly set user offline in RTDB (triggers Cloud Function)
+        //    Now safe to write offline - no listener will overwrite it
+        console.log('[AuthContext] Step 2: Setting user offline in RTDB');
+        await rtdbPresenceService.setOffline(user.uid);
+        console.log('[AuthContext] Step 2 complete: User offline status written');
+        
+        // 3. THIRD: Sign out from Firebase Auth
+        console.log('[AuthContext] Step 3: Signing out from Firebase Auth');
         await authService.signOut(user.uid);
+        console.log('[AuthContext] Logout sequence complete');
+      } else {
+        console.log('[AuthContext] No user to sign out');
       }
       // User state will be updated by onAuthStateChanged listener
     } catch (err: any) {
+      console.error('[AuthContext] Error during signOut:', err);
       setError(err.message);
       throw err;
     }

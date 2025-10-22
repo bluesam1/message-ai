@@ -43,6 +43,14 @@
 - Optimistic local cache
 - Offline persistence
 
+**Firebase Realtime Database (RTDB)**
+- Presence tracking with `.info/connected` and `onDisconnect()`
+- JSON tree structure: `/status/{userId}`
+- Server-side disconnect detection (handles crashes/force-quits)
+- Client-side mirroring to Firestore for UI compatibility
+- Security rules: `database.rules.json`
+- Free tier: 1GB storage, 10GB/month download
+
 **Firebase Storage**
 - Image uploads
 - Path structure: `messages/{userId}/{filename}`

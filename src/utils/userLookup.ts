@@ -51,6 +51,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
       email: userData.email,
       displayName: userData.displayName,
       photoURL: userData.photoURL || null,
+      online: userData.online || false,
       createdAt: userData.createdAt?.toMillis?.() || Date.now(),
       lastSeen: userData.lastSeen?.toMillis?.() || Date.now(),
     };

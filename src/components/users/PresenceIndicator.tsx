@@ -2,11 +2,13 @@
  * PresenceIndicator Component
  * Displays online/offline status for a user with optional text
  * Shows green dot for online, gray dot for offline
+ * Automatically updates relative time text (e.g., "Just now" → "Last seen 1m ago")
  */
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { usePresence } from '../../hooks/usePresence';
+import { useCurrentTime } from '../../hooks/useCurrentTime';
 import { getPresenceText, getPresenceColor } from '../../utils/presenceUtils';
 
 interface PresenceIndicatorProps {
@@ -23,6 +25,7 @@ interface PresenceIndicatorProps {
 /**
  * PresenceIndicator Component
  * Shows a colored dot and optional text indicating user's online status
+ * Uses shared global timer to update relative time text every minute
  */
 const PresenceIndicator: React.FC<PresenceIndicatorProps> = ({
   userId,
@@ -31,6 +34,9 @@ const PresenceIndicator: React.FC<PresenceIndicatorProps> = ({
   textStyle,
 }) => {
   const { online, lastSeen, loading } = usePresence(userId);
+  // Use global timer that's shared across all PresenceIndicator instances
+  // This is much more efficient than having a timer per component
+  const currentTime = useCurrentTime();
 
   // Don't render anything if still loading or no userId
   if (loading || !userId) {
@@ -39,6 +45,7 @@ const PresenceIndicator: React.FC<PresenceIndicatorProps> = ({
 
   const dotSize = size === 'small' ? 8 : 12;
   const color = getPresenceColor(online);
+  // Recalculate text based on current time (will update every minute via global timer)
   const text = getPresenceText(online, lastSeen);
 
   return (

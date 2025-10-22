@@ -205,6 +205,86 @@ useEffect(() => {
 - Read receipt updates
 - Group member changes
 
+### 6. RTDB Presence Tracking
+
+**Pattern:** Use Firebase Realtime Database for reliable disconnect detection, mirror to Firestore for UI compatibility
+
+**Why RTDB over Firestore for Presence:**
+- RTDB provides `.info/connected` - special path that reflects connection status
+- `onDisconnect()` handlers run SERVER-SIDE when Firebase detects disconnect
+- Handles app crashes, force-quits, and network loss automatically
+- Firestore requires client-side app state listeners (less reliable)
+
+**Architecture:**
+```
+┌─────────────────────────────────────┐
+│   RTDB (Source of Truth)            │
+│   /status/{userId}                  │
+│   - state: "online" | "offline"     │
+│   - lastSeenAt: timestamp           │
+│   - Uses .info/connected            │
+│   - Uses onDisconnect() handlers    │
+└──────────────┬──────────────────────┘
+               │
+               │ Client-side mirroring
+               │ (rtdbPresenceService)
+               ▼
+┌──────────────────────────────────────┐
+│   Firestore (Mirrored)               │
+│   users/{userId}                     │
+│   - online: boolean                  │
+│   - lastSeen: number                 │
+│   - Read by UI components            │
+└──────────────────────────────────────┘
+```
+
+**Implementation:**
+```typescript
+// Initialize presence on login (AuthContext)
+import { rtdbPresenceService } from '../services/user/rtdbPresenceService';
+
+useEffect(() => {
+  if (user?.uid) {
+    rtdbPresenceService.initialize(user.uid);
+  }
+}, [user?.uid]);
+
+// Cleanup on logout
+const signOut = async () => {
+  rtdbPresenceService.cleanup();
+  await authService.signOut();
+};
+
+// rtdbPresenceService internals:
+// 1. Listen to .info/connected
+// 2. When connected → write { state: "online", lastSeenAt: serverTimestamp() }
+// 3. Register onDisconnect() → { state: "offline", lastSeenAt: serverTimestamp() }
+// 4. Listen to /status/{userId} and mirror to Firestore users/{userId}
+```
+
+**UI reads from Firestore (no changes needed):**
+```typescript
+// usePresence hook reads from Firestore
+const userRef = doc(db, 'users', userId);
+onSnapshot(userRef, (snapshot) => {
+  const online = snapshot.data()?.online || false;
+  const lastSeen = snapshot.data()?.lastSeen || Date.now();
+  // Update UI
+});
+```
+
+**Why:** 
+- Reliable disconnect detection (RTDB's core strength)
+- No UI changes needed (existing Firestore listeners work)
+- Client-side mirroring avoids Cloud Functions complexity for MVP
+- Minimal writes (only on actual state changes)
+
+**Where Used:**
+- User online/offline indicators
+- "Last seen" timestamps
+- Presence in conversation lists
+- Presence in chat headers
+
 ## Data Models
 
 ### Firestore Schema

@@ -11,19 +11,27 @@ export default function ProfileScreen() {
   const { user, signOut } = useAuth();
 
   const handleSignOut = async () => {
+    console.log('[ProfileScreen] handleSignOut called');
     Alert.alert(
       'Sign Out',
       'Are you sure you want to sign out?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Cancel', 
+          style: 'cancel',
+          onPress: () => console.log('[ProfileScreen] User cancelled logout')
+        },
         {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
+            console.log('[ProfileScreen] User confirmed logout, calling signOut()...');
             try {
               await signOut();
+              console.log('[ProfileScreen] signOut() completed successfully');
               // Navigation handled by root layout
             } catch (error: any) {
+              console.error('[ProfileScreen] signOut() error:', error);
               Alert.alert('Error', 'Failed to sign out');
             }
           },
