@@ -189,18 +189,16 @@ export default function GroupMemberPicker({
   };
 
   const renderMember = ({ item }: { item: PendingMember }) => (
-    <View style={styles.memberItem}>
-      <View style={styles.memberInfo}>
-        <Text style={styles.memberEmail}>{item.email}</Text>
-        {item.displayName && (
-          <Text style={styles.memberName}>{item.displayName}</Text>
-        )}
-      </View>
+    <View style={styles.memberChip}>
+      <Text style={styles.chipText} numberOfLines={1}>
+        {item.displayName || item.email}
+      </Text>
       <TouchableOpacity
         onPress={() => handleRemoveMember(item.email)}
-        style={styles.removeButton}
+        style={styles.chipRemoveButton}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={styles.removeButtonText}>Remove</Text>
+        <Text style={styles.chipRemoveText}>×</Text>
       </TouchableOpacity>
     </View>
   );
@@ -258,14 +256,22 @@ export default function GroupMemberPicker({
           <Text style={styles.selectedTitle}>
             Selected ({members.length})
           </Text>
-          <FlatList
-            data={members}
-            renderItem={renderMember}
-            keyExtractor={(item) => item.email}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.selectedList}
-          />
+          <View style={styles.chipsContainer}>
+            {members.map((member) => (
+              <View key={member.email} style={styles.memberChip}>
+                <Text style={styles.chipText} numberOfLines={1}>
+                  {member.displayName || member.email}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => handleRemoveMember(member.email)}
+                  style={styles.chipRemoveButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.chipRemoveText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
         </View>
       )}
 
@@ -325,8 +331,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   selectedSection: {
-    paddingVertical: 12,
-    paddingLeft: 16,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
     backgroundColor: '#F8F9FA',
@@ -335,44 +340,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#666',
-    marginBottom: 8,
+    marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  selectedList: {
-    flexGrow: 0,
+  chipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  memberItem: {
+  memberChip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 12,
-    width: 80,
+    backgroundColor: '#007AFF',
+    borderRadius: 20,
+    paddingLeft: 16,
+    paddingRight: 8,
+    paddingVertical: 8,
+    maxWidth: '80%',
   },
-  memberInfo: {
-    alignItems: 'center',
-  },
-  memberEmail: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  memberName: {
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  removeButton: {
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: '#FF3B30',
-    borderRadius: 4,
-  },
-  removeButtonText: {
+  chipText: {
+    fontSize: 15,
     color: '#FFFFFF',
-    fontSize: 10,
+    fontWeight: '500',
+    marginRight: 8,
+    flexShrink: 1,
+  },
+  chipRemoveButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chipRemoveText: {
+    fontSize: 20,
+    color: '#FFFFFF',
     fontWeight: '600',
+    lineHeight: 20,
   },
   resultsSection: {
     flex: 1,
