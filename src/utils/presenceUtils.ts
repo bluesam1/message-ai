@@ -15,8 +15,23 @@
  * formatLastSeen(Date.now() - 7200000) // "Last seen 2h ago"
  */
 export function formatLastSeen(lastSeen: number): string {
+  console.log('[presenceUtils] formatLastSeen called with:', { 
+    lastSeen, 
+    type: typeof lastSeen,
+    isNaN: isNaN(lastSeen),
+    truthyCheck: !lastSeen
+  });
+  
+  // Validate lastSeen is a valid number
+  if (!lastSeen || typeof lastSeen !== 'number' || isNaN(lastSeen)) {
+    console.warn('[presenceUtils] Invalid lastSeen value:', lastSeen);
+    return 'Last seen recently';
+  }
+
   const now = Date.now();
   const diff = now - lastSeen;
+  
+  console.log('[presenceUtils] Time diff:', { now, lastSeen, diff, minutes: Math.floor(diff / 60000) });
 
   // Convert milliseconds to various time units
   const minutes = Math.floor(diff / 60000);
@@ -25,6 +40,7 @@ export function formatLastSeen(lastSeen: number): string {
 
   // Return appropriate format based on time difference
   if (minutes < 1) {
+    console.log('[presenceUtils] Returning "Just now"');
     return 'Just now';
   }
   

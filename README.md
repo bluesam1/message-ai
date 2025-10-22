@@ -205,6 +205,8 @@ The following files contain secrets and are in `.gitignore`:
 ## 📚 Documentation
 
 - `FIREBASE_SETUP.md` - Detailed Firebase setup guide
+- `CLOUD_FUNCTIONS_SETUP.md` - Cloud Functions deployment guide
+- `EMULATOR_TESTING.md` - Firebase emulators setup
 - `memory-bank/` - Project context and decisions
 - `planning/` - Product requirements documents
 - `tasks/` - Feature-specific PRDs and task lists
@@ -213,7 +215,7 @@ The following files contain secrets and are in `.gitignore`:
 
 - **Framework:** React Native with Expo SDK 54.x
 - **Language:** TypeScript 5.x
-- **Backend:** Firebase (Auth, Firestore, Storage, FCM)
+- **Backend:** Firebase (Auth, Firestore, Realtime Database, Storage, FCM)
 - **Local Database:** Expo SQLite 16.x
 - **Navigation:** Expo Router 6.x
 - **Testing:** Jest + React Native Testing Library
@@ -233,11 +235,11 @@ The following files contain secrets and are in `.gitignore`:
 ## 🎯 MVP Features (Phase 1)
 
 - ✅ Project setup and infrastructure
-- 🔄 Email/Password + Google authentication
-- 🔄 One-on-one messaging
-- 🔄 Offline support with sync
-- 🔄 Group chat
-- 🔄 Read receipts and presence
+- ✅ Email/Password + Google authentication
+- ✅ One-on-one messaging
+- ✅ Offline support with sync
+- ✅ Group chat
+- ✅ Read receipts and presence (RTDB-based)
 - 🔄 Image sharing
 - 🔄 Foreground push notifications
 
@@ -282,10 +284,10 @@ MIT License - see the [LICENSE](LICENSE) file for details
 
 ## 🎉 Current Status
 
-**Phase:** PRD 01 Complete (Project Setup)
-**Progress:** 40/41 tasks complete (98%)
+**Phase:** PRD 06.1 Complete (RTDB Presence Migration)
+**Progress:** ~85% (Core messaging, offline support, groups, and presence complete)
 **Android:** ✅ Building and running
 **iOS:** Deferred (Windows limitation - use EAS Build)
 
-Ready to start PRD 02: Authentication System!
+Ready to start PRD 07: Image Sharing!
 

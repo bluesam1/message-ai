@@ -2,10 +2,10 @@
 
 ## Overall Status
 
-**Current Phase:** PRD 06 Complete ✅ - Ready for PRD 07 (Image Sharing)  
+**Current Phase:** PRD 06.1 Complete ✅ - RTDB Presence Migration Done, Ready for PRD 07 (Image Sharing)  
 **Started:** October 21, 2025  
 **Target Completion:** 24 hours from implementation start  
-**Estimated Progress:** 82% (Infrastructure + Authentication + Core Messaging + Offline Support + Group Chat + Read Receipts & Presence complete)
+**Estimated Progress:** 85% (Infrastructure + Authentication + Core Messaging + Offline Support + Group Chat + Read Receipts & Presence + RTDB Migration complete)
 
 ---
 
@@ -252,6 +252,68 @@
 - Resolved presence initialization (required AuthContext integration)
 - Fixed aggressive cleanup causing premature offline status
 - Required full app restart for initialization code
+
+**Blockers:** None
+
+---
+
+### PRD 06.1: RTDB Presence Migration (100% Complete) ✅
+**Timeline:** ~4 hours (expanded due to Cloud Functions and bug fixes)  
+**Status:** COMPLETE  
+**Completed:** October 22, 2025
+
+#### Checklist
+- [x] Firebase Realtime Database enabled and configured
+- [x] RTDB security rules created (`database.rules.json`)
+- [x] Firebase config updated (firebase.json, firebase.ts with databaseURL)
+- [x] RTDB presence service implemented with .info/connected
+- [x] onDisconnect() handlers for server-side offline detection
+- [x] **Cloud Functions deployed for server-side Firestore mirroring** (replaced client-side approach)
+- [x] AuthContext updated to use rtdbPresenceService with proper logout sequence
+- [x] Old Firestore-only presence files removed
+- [x] RTDB security rules deployed via Firebase CLI
+- [x] Cloud Functions deployed to Firebase
+- [x] Unit tests written for rtdbPresenceService (12 test scenarios)
+- [x] Documentation updated (systemPatterns.md, techContext.md, activeContext.md)
+- [x] **Logout race condition fixed** (cleanup → setOffline → signOut ordering)
+- [x] **Header logout button fixed** (now uses AuthContext.signOut)
+- [x] **Timestamp consistency fixed** (Firestore server timestamps)
+- [x] **Global timer optimization** (useCurrentTime hook for all presence indicators)
+
+**Key Implementations:**
+- rtdbPresenceService with connection monitoring, onDisconnect handlers, and explicit setOffline method
+- **Cloud Function `onPresenceChange`** for server-side RTDB → Firestore mirroring
+- Instance-specific Cloud Function: `.instance('msg-ai-1-default-rtdb')`
+- usePresence hook updated to handle Firestore Timestamp objects (.toMillis())
+- **useCurrentTime hook** - Global 60-second timer shared across all PresenceIndicator components
+- Comprehensive unit tests with mocked Firebase functions
+- Updated Memory Bank documentation with RTDB presence pattern
+
+**Problem Solved:**
+- Original Firestore-only presence showed all users as "online" all the time
+- App state listeners don't detect crashes, force-quits, or sudden disconnects
+- RTDB's `.info/connected` and `onDisconnect()` provide reliable disconnect detection
+- **Logout race condition** - connection listener was overwriting explicit offline status
+- **Header logout bypass** - logout button was not calling presence cleanup
+- **"Invalid Date" display** - inconsistent timestamp handling between RTDB and Firestore
+- **Static "Last seen" text** - relative time not updating as time passed
+
+**Challenges Overcome:**
+- Integrated RTDB alongside existing Firestore without breaking UI
+- **Upgraded to Cloud Functions** for production reliability (client-side mirroring insufficient)
+- Fixed complex logout sequence with proper ordering (cleanup → setOffline → signOut)
+- Granted necessary Firebase service account permissions (Artifact Registry, Editor roles)
+- Explicitly specified RTDB instance name in Cloud Function
+- Achieved consistent Firestore timestamps using server-side timestamps
+- Optimized timer performance with single global interval for all components
+- Updated all imports and removed old presence service cleanly
+
+**Documentation Created:**
+- CLOUD_FUNCTIONS_SETUP.md - Deployment instructions
+- EMULATOR_TESTING.md - Local testing guide
+- RTDB_INSTANCE_FIX.md - Instance name requirement
+- LOGOUT_PRESENCE_FIX.md - Race condition details
+- PRD_06.1_COMPLETION_SUMMARY.md - Final summary
 
 **Blockers:** None
 

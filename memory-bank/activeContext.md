@@ -1,10 +1,11 @@
 # Active Context
 
 ## Current Status
-**Phase:** PRD 06 Complete ✅ - Read Receipts & Presence Implemented  
+**Phase:** PRD 06.1 Complete ✅ - RTDB Presence Migration Fully Implemented (with Cloud Functions)  
 **Date:** October 22, 2025  
-**Branch:** prd-06-read-receipts-presence  
-**App Status:** Requires development build (not Expo Go compatible) - Core messaging + offline support + group chat + read receipts + presence complete
+**Branch:** prd-06_1-realtime-database  
+**App Status:** Requires development build (not Expo Go compatible) - Core messaging + offline support + group chat + read receipts + RTDB presence complete  
+**Next:** Ready for PRD 07 - Image Sharing
 
 ## What Just Happened
 
@@ -79,6 +80,26 @@
 14. **Firestore Schema Updates:** Documented readBy, online, and lastSeen fields in schema
 15. **Unit Tests:** Comprehensive tests for presenceUtils (17 tests) and readReceiptService (4 tests)
 
+### ✅ Completed (PRD 06.1 - RTDB Presence Migration - Full Implementation)
+1. **Firebase RTDB Setup:** Enabled Realtime Database in Firebase Console, created database in us-central1
+2. **Security Rules:** Created `database.rules.json` with authenticated read/write rules for `/status/{uid}`
+3. **Firebase Config:** Updated `firebase.json` to include database + functions, added RTDB initialization with databaseURL to `src/config/firebase.ts`
+4. **RTDB Presence Service:** Created `rtdbPresenceService.ts` with connection monitoring, onDisconnect handlers, and explicit setOffline method
+5. **Connection Monitoring:** Implemented `.info/connected` listener for reliable connection status
+6. **Online Status:** Automatic online status with `onDisconnect()` handler for server-side offline detection
+7. **Cloud Functions Deployed:** Created `onPresenceChange` function for server-side RTDB → Firestore mirroring (replaced client-side approach)
+8. **Instance-Specific Function:** Explicitly specified `.instance('msg-ai-1-default-rtdb')` in Cloud Function
+9. **AuthContext Integration:** Updated with proper logout sequence (cleanup → setOffline → signOut) to prevent race condition
+10. **Header Logout Fix:** Fixed `app/(tabs)/_layout.tsx` logout button to use AuthContext.signOut instead of bypassing it
+11. **usePresence Hook Update:** Modified to handle Firestore Timestamp objects with `.toMillis()` conversion
+12. **Global Timer Optimization:** Created `useCurrentTime` hook with single shared 60-second interval for all PresenceIndicator components
+13. **Timestamp Consistency:** Cloud Function always uses `admin.firestore.FieldValue.serverTimestamp()` for Firestore writes
+14. **File Cleanup:** Removed old Firestore-only presenceService.ts and usePresenceUpdates.ts
+15. **Security Rules Deployed:** Successfully deployed RTDB rules via Firebase CLI
+16. **Cloud Functions Deployed:** Successfully deployed to Firebase with proper permissions (Artifact Registry Reader + Editor)
+17. **Unit Tests:** Comprehensive tests for rtdbPresenceService (12 test scenarios covering all functionality)
+18. **Documentation:** Updated systemPatterns.md, techContext.md, activeContext.md, progress.md, and created 5 new docs (CLOUD_FUNCTIONS_SETUP, EMULATOR_TESTING, RTDB_INSTANCE_FIX, LOGOUT_PRESENCE_FIX, PRD_06.1_COMPLETION_SUMMARY)
+
 ### ✅ Completed (PRD 04 - Offline Support & Sync)
 1. **Network Service:** Real-time connectivity monitoring with NetInfo, listener pattern for state changes
 2. **Offline Queue:** SQLite-based pending messages table with retry count tracking
@@ -110,12 +131,14 @@ All PRDs are in `/tasks` directory:
 ## Current Focus
 
 ### Immediate Next Steps
-**PRIORITY:** Commit PRD 06 and prepare for PRD 07 (Image Sharing)
+**PRIORITY:** Complete manual testing of RTDB presence, then proceed to PRD 07 (Image Sharing)
 
 #### Next Actions
-1. Commit PRD 06 implementation to git
-2. Push changes to remote
-3. Begin PRD 07 planning - Image Sharing
+1. Test RTDB presence with multi-device setup (Tasks 13-16 from PRD 06.1)
+2. Verify presence shows online/offline correctly
+3. Test force-quit disconnect detection
+4. Commit PRD 06.1 implementation to git
+5. Begin PRD 07 planning - Image Sharing
 
 #### PRD 07 Goals (Upcoming)
 - Image selection from gallery
@@ -273,6 +296,26 @@ PRD 08 (Notifications) ────┘  ← Can develop in parallel
 8. **Presence Display:** "Online" for online:true, otherwise format lastSeen timestamp (Just now, 5m ago, etc.)
 9. **React Native AppState:** AppState listener essential for detecting app foreground/background transitions
 10. **Type Safety:** ReturnType<typeof setTimeout> for timer types prevents TypeScript errors across environments
+
+### From PRD 06.1 Implementation (RTDB Presence Migration)
+1. **Firestore Presence Bug:** Original Firestore-only approach showed all users online - App state listeners don't detect crashes/force-quits
+2. **RTDB is Purpose-Built:** Firebase Realtime Database's `.info/connected` and `onDisconnect()` are designed for presence - use the right tool
+3. **Server-Side Disconnect:** `onDisconnect()` handlers execute SERVER-SIDE when Firebase detects disconnect - no client code needed
+4. **Client-Side Mirroring Fails:** Client-side mirroring insufficient for disconnects - client can't mirror if it's crashed/offline
+5. **Cloud Functions Required:** Server-side mirroring via Cloud Functions ensures updates happen even when client is offline
+6. **No UI Changes:** Mirroring to Firestore means existing UI components work unchanged - seamless migration
+7. **Minimal Writes:** RTDB only writes on actual state changes (connect/disconnect) - no periodic heartbeats needed
+8. **RTDB Free Tier:** 1GB storage + 10GB/month download is plenty for presence tracking in MVP
+9. **RTDB Instance Names:** Newer Firebase projects use suffixed names (`-default-rtdb`) - must specify in Cloud Functions: `.instance('msg-ai-1-default-rtdb')`
+10. **Testing RTDB:** Mock `ref`, `onValue`, `set`, `onDisconnect` for unit tests - straightforward with Jest
+11. **Security Rules Syntax:** RTDB rules use JSON format (different from Firestore) - `"auth != null"` vs Firestore's `request.auth != null`
+12. **Logout Race Condition:** Connection listeners can overwrite explicit offline status - must cleanup listeners BEFORE setting offline
+13. **Multiple Logout Paths:** Check all UI locations where logout occurs (buttons, modals, screens) - ensure all use AuthContext.signOut
+14. **Timestamp Consistency:** Always use Firestore's serverTimestamp() in Cloud Functions for consistent Timestamp objects
+15. **Firestore Timestamp Conversion:** Use `.toMillis()` method to convert Firestore Timestamp objects to milliseconds for calculations
+16. **Global Timer Pattern:** Single shared timer for all components is more efficient than per-component timers - use global state with listeners
+17. **React Hook Cleanup:** Always unsubscribe listeners in useEffect cleanup to prevent memory leaks and stale state
+18. **Firebase Permissions:** Cloud Functions need Artifact Registry Reader (deployment) and Editor (Firestore writes) roles
 
 ### From PRD Analysis
 1. **Test Coverage Focus:** Focus tests on utils and business logic, skip UI/Firebase tests ✅ VALIDATED

@@ -52,6 +52,7 @@ describe('userLookup', () => {
         email: 'alice@example.com',
         displayName: 'Alice',
         photoURL: 'https://example.com/photo.jpg',
+        online: false,
         createdAt: 1698765000000,
         lastSeen: 1698765432000,
       });

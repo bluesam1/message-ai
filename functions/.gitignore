@@ -1,0 +1,26 @@
+# Compiled JavaScript files
+lib/
+
+# Node modules
+node_modules/
+
+# Build output
+*.js
+*.js.map
+
+# Keep index.ts
+!src/**/*.ts
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# TypeScript cache
+*.tsbuildinfo
+
