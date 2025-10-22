@@ -234,6 +234,18 @@ PRD 08 (Notifications) ────┘  ← Can develop in parallel
 9. **iOS Development on Windows:** Use EAS Build cloud service for iOS builds (free for simulator, $99/year Apple Developer for device)
 10. **Pre-existing Issues:** Always verify bugs exist on main branch before attributing to new changes
 
+### From PRD 05 Implementation
+1. **Unified Data Model:** Using `participants[]` + `type` field is superior to separate models - works for both direct and group chats
+2. **Closure Bugs in Listeners:** Real-time listeners must use current state, not captured variables - avoid stale closure bugs
+3. **SQLite Migration Strategy:** Check column existence with `PRAGMA table_info()` before ALTER TABLE - safe for existing databases
+4. **Timestamp Type Safety:** Firestore returns both Timestamp objects and numbers - create helper functions to handle both
+5. **Optimistic UI Conflicts:** Don't manually replace optimistic messages - let Firestore listener handle all updates to avoid conflicts
+6. **Minimum Participant Flexibility:** 2-person groups are valid (allows 1-on-1 → group conversion) - don't over-constrain
+7. **Email-Based User Lookup:** Firestore `in` query works well for batch user lookups (up to 10 items per query)
+8. **Component State Management:** useEffect cleanup is critical - track `isInitialMount` to avoid false triggers
+9. **Modal Header UX:** Proper touch feedback (`activeOpacity`) and spacing (`paddingTop`) are essential for native feel
+10. **Debug Logging Strategy:** Add comprehensive logging during debugging, clean up before commit - keep only error logs
+
 ### From PRD Analysis
 1. **Test Coverage Focus:** Focus tests on utils and business logic, skip UI/Firebase tests ✅ VALIDATED
 2. **Performance Budget:** FlatList optimizations are critical for 60 FPS goal ✅ ACHIEVED
@@ -263,10 +275,11 @@ Currently using:
 - Workspace: `C:\Users\SamExel\repos\message-ai`
 
 ### Git Status
-- Initial commits made
-- PRD 01 implementation committed
-- Branch: main
+- PRD 01-05 implementations committed
+- Branch: prd-05-group-chat
+- Last commit: feat(prd-05): implement group chat functionality
 - Clean working directory
+- 198 tests passing
 
 ## Questions Resolved
 
@@ -284,11 +297,23 @@ Currently using:
 - ✅ How to resolve React version conflicts? → **Lock to React 19.1.0 exactly for RN 0.81.4 compatibility**
 - ✅ Testing library compatibility issues? → **Deferred React Native Testing Library, using Jest for unit tests**
 
-### For PRD 03 (Upcoming)
-- ❓ Should messages be paginated from the start? → Limit to 100 most recent?
-- ❓ How to handle message deduplication between SQLite and Firestore?
-- ❓ What's the best way to achieve 60 FPS scrolling with FlatList?
-- ❓ Should we implement typing indicators in MVP?
+### For PRD 03 (Completed)
+- ✅ Should messages be paginated from the start? → **Yes, limit to 100 most recent with Firestore query**
+- ✅ How to handle message deduplication between SQLite and Firestore? → **mergeMessageLists() utility with ID-based deduplication**
+- ✅ What's the best way to achieve 60 FPS scrolling with FlatList? → **React.memo + getItemLayout + windowSize optimization**
+- ✅ Should we implement typing indicators in MVP? → **Deferred to post-MVP (not in core PRDs)**
+
+### For PRD 04 (Completed)
+- ✅ How to detect offline status reliably? → **@react-native-community/netinfo with listener pattern**
+- ✅ Where to store pending messages? → **SQLite pendingMessages table with retry count tracking**
+- ✅ When to trigger sync? → **On reconnect via networkService.subscribe() + manual retry button**
+- ✅ How to prevent duplicate uploads? → **Check Firestore message existence before upload**
+
+### For PRD 05 (Completed)
+- ✅ How to support both direct and group chats? → **Unified model with participants[] + type field**
+- ✅ What's the minimum group size? → **2 participants (creator + 1 other) for flexibility**
+- ✅ How to add members to groups? → **Email-based lookup with getUserByEmail() Firestore query**
+- ✅ How to handle existing databases? → **Robust SQLite migration with PRAGMA table_info() checks**
 
 ## Next Session Prep
 
@@ -308,25 +333,23 @@ Currently using:
 
 ---
 
-**Next Action:** Start PRD 03 - Core One-on-One Messaging  
-**Expected Duration:** 5 hours  
-**Goal:** Users can send and receive real-time messages with offline support
+**Next Action:** Start PRD 06 - Read Receipts & Presence  
+**Expected Duration:** 2 hours  
+**Goal:** Users can see read receipts and online/offline status
 
 **Key Files to Create:**
-- `src/services/firebase/firestoreService.ts` - Firestore CRUD operations
-- `src/services/sqlite/sqliteService.ts` - Local database operations
-- `src/services/messaging/messageService.ts` - Message business logic
-- `app/(tabs)/index.tsx` - Conversations list (update placeholder)
-- `app/chat/[id].tsx` - Chat screen with message history
-- `src/components/chat/MessageBubble.tsx` - Individual message component
-- `src/components/chat/MessageInput.tsx` - Message input field
-- `src/utils/messageUtils.ts` - Message formatting utilities
+- `src/services/presence/presenceService.ts` - Presence tracking service
+- `src/hooks/usePresence.ts` - React hook for presence state
+- `src/utils/presenceUtils.ts` - Presence utilities (debounce, formatLastSeen)
+- Update `src/components/chat/MessageBubble.tsx` - Add read receipt indicators
+- Update `app/(tabs)/index.tsx` - Add presence indicators to conversation list
+- Update `app/chat/[id].tsx` - Add presence to chat header
 
 **Key Decisions Needed:**
-- Firestore schema for `conversations` and `messages` collections
-- SQLite schema for local caching
-- Message pagination strategy (initial: 100 most recent)
-- FlatList optimization approach for 60 FPS target
+- How to efficiently update presence without overwhelming Firestore (debouncing strategy)
+- Where to store presence data (users collection or separate presence collection?)
+- How to handle onDisconnect() for automatic offline status
+- Read receipt UI design (checkmarks vs. avatars)
 
 
 
