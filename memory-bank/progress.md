@@ -2,10 +2,10 @@
 
 ## Overall Status
 
-**Current Phase:** PRD 04 Complete ✅ - Ready for PRD 05 (Group Chat)  
+**Current Phase:** PRD 05 Complete ✅ - Ready for PRD 06 (Read Receipts & Presence)  
 **Started:** October 21, 2025  
 **Target Completion:** 24 hours from implementation start  
-**Estimated Progress:** 65% (Infrastructure + Authentication + Core Messaging + Offline Support complete)
+**Estimated Progress:** 75% (Infrastructure + Authentication + Core Messaging + Offline Support + Group Chat complete)
 
 ---
 
@@ -176,24 +176,45 @@
 
 ---
 
-### PRD 05: Group Chat (0%)
+### PRD 05: Group Chat (100% Complete) ✅
 **Timeline:** Hours 14-17  
-**Status:** NOT STARTED
+**Status:** COMPLETE  
+**Completed:** October 22, 2025
 
 #### Checklist
-- [ ] Group creation flow implemented
-- [ ] Add members by email
-- [ ] Email validation
-- [ ] User lookup by email
-- [ ] Duplicate member prevention
-- [ ] Minimum 3 participants enforced
-- [ ] Group conversation created in Firestore
-- [ ] Group messages send to all participants
-- [ ] Group info screen
-- [ ] Member list display
-- [ ] Unit tests for validation logic
+- [x] Group creation flow implemented (3-step: name → members → review)
+- [x] Add members by email (GroupMemberPicker component)
+- [x] Email validation (isValidEmail utility)
+- [x] User lookup by email (userLookup service with 4 functions)
+- [x] Duplicate member prevention (isDuplicateMember + UI validation)
+- [x] Minimum 2 participants enforced (changed from 3 to allow 1-on-1 → group conversion)
+- [x] Group conversation created in Firestore (createGroup function)
+- [x] Group messages send to all participants (unified participants array)
+- [x] Group info screen (GroupInfo modal with member list)
+- [x] Member list display (with creator badge, add members button)
+- [x] Unit tests for validation logic (groupValidation.test.ts - 25 tests)
+- [x] Unit tests for user lookup (userLookup.test.ts - 13 tests)
+- [x] Unit tests for conversation service (updated - 25 tests total)
 
-**Blockers:** Depends on PRD 03 completion
+**Key Implementations:**
+- Data model: Extended Conversation with groupName, groupPhoto, createdBy
+- Services: createGroup(), addMembersToGroup(), getUserByEmail(), validateEmails()
+- UI Components: GroupCreation, GroupMemberPicker, GroupInfo
+- Validation: Group name (3-50 chars), email format, participant minimum (2)
+- SQLite migration: Robust column addition with existence checking
+- Real-time sync fix: Corrected listener closure bug for bidirectional messaging
+- Timestamp safety: toMillis() helper for Firestore/number compatibility
+
+**Challenges Overcome:**
+- Fixed real-time message sync asymmetry (RIGHT→LEFT worked, LEFT→RIGHT didn't)
+- Resolved SQLite schema migration errors on existing databases
+- Fixed group info modal close button and header positioning
+- Removed sender names from message bubbles for cleaner UI
+- Fixed avatar display showing "?" for group members
+- Corrected minimum participant validation (2 members, not 3)
+- Fixed "Back Online" banner showing on every screen load
+
+**Blockers:** None
 
 ---
 
@@ -373,6 +394,18 @@
   - [x] Offline banner displays connection status
   - [x] Retry mechanism with exponential backoff
   - [x] Message status indicators working
+
+### Milestone 5: Group Chat ✅
+- **Date:** October 22, 2025
+- **Definition of Done:** ALL CRITERIA MET
+  - [x] Can create group with 2+ users
+  - [x] Group messages work bidirectionally
+  - [x] Email-based member addition
+  - [x] Group info screen with member list
+  - [x] Add members to existing groups
+  - [x] Groups display distinctly in conversation list
+  - [x] Real-time sync working properly
+  - [x] Unit tests passing (160+ tests)
 
 ---
 

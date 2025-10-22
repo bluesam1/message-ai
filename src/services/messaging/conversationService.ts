@@ -16,10 +16,14 @@ import {
   orderBy,
   Timestamp,
   Unsubscribe,
+  updateDoc,
+  arrayUnion,
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Conversation } from '../../types/message';
 import * as sqliteService from '../sqlite/sqliteService';
+import { getUserIdsByEmails } from '../../utils/userLookup';
+import { validateGroupName, validateMinimumParticipants } from '../../utils/groupValidation';
 
 /**
  * Generate a unique conversation ID
@@ -31,6 +35,17 @@ function generateConversationId(): string {
   const timestamp = Date.now();
   const randomSuffix = Math.random().toString(36).substr(2, 9);
   return `conv_${timestamp}_${randomSuffix}`;
+}
+
+/**
+ * Safely convert Firestore Timestamp to milliseconds
+ * Handles cases where value might already be a number or undefined
+ */
+function toMillis(value: any): number {
+  if (!value) return Date.now();
+  if (typeof value === 'number') return value;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  return Date.now();
 }
 
 /**
@@ -78,10 +93,13 @@ async function findExistingConversation(
       id: querySnapshot.docs[0].id,
       participants: docData.participants,
       type: docData.type,
+      groupName: docData.groupName || null,
+      groupPhoto: docData.groupPhoto || null,
+      createdBy: docData.createdBy || docData.participants[0],
       lastMessage: docData.lastMessage || '',
-      lastMessageTime: docData.lastMessageTime?.toMillis() || Date.now(),
-      createdAt: docData.createdAt?.toMillis() || Date.now(),
-      updatedAt: docData.updatedAt?.toMillis() || Date.now(),
+      lastMessageTime: toMillis(docData.lastMessageTime),
+      createdAt: toMillis(docData.createdAt),
+      updatedAt: toMillis(docData.updatedAt),
     };
     
     console.log('[ConversationService] Found existing conversation:', conversation.id);
@@ -98,11 +116,15 @@ async function findExistingConversation(
  * 
  * @param {string[]} participantIds - Array of user IDs
  * @param {string} type - Conversation type ('direct' or 'group')
+ * @param {string} [groupName] - Group name (required for groups)
+ * @param {string} [createdBy] - User ID of creator
  * @returns {Promise<Conversation>} Newly created conversation
  */
 async function createConversation(
   participantIds: string[],
-  type: 'direct' | 'group' = 'direct'
+  type: 'direct' | 'group' = 'direct',
+  groupName?: string,
+  createdBy?: string
 ): Promise<Conversation> {
   try {
     // Sort participants for consistency
@@ -117,6 +139,9 @@ async function createConversation(
       id: conversationId,
       participants: sortedParticipants,
       type,
+      groupName: groupName || null,
+      groupPhoto: null,
+      createdBy: createdBy || sortedParticipants[0],
       lastMessage: '',
       lastMessageTime: now,
       createdAt: now,
@@ -128,6 +153,9 @@ async function createConversation(
     await setDoc(conversationRef, {
       participants: sortedParticipants,
       type,
+      groupName: groupName || null,
+      groupPhoto: null,
+      createdBy: createdBy || sortedParticipants[0],
       lastMessage: '',
       lastMessageTime: Timestamp.fromMillis(now),
       createdAt: Timestamp.fromMillis(now),
@@ -210,10 +238,13 @@ export async function getConversationById(
       id: conversationDoc.id,
       participants: docData.participants,
       type: docData.type,
+      groupName: docData.groupName || null,
+      groupPhoto: docData.groupPhoto || null,
+      createdBy: docData.createdBy || docData.participants[0],
       lastMessage: docData.lastMessage || '',
-      lastMessageTime: docData.lastMessageTime?.toMillis() || Date.now(),
-      createdAt: docData.createdAt?.toMillis() || Date.now(),
-      updatedAt: docData.updatedAt?.toMillis() || Date.now(),
+      lastMessageTime: toMillis(docData.lastMessageTime),
+      createdAt: toMillis(docData.createdAt),
+      updatedAt: toMillis(docData.updatedAt),
     };
     
     // Save to SQLite for future access
@@ -265,6 +296,9 @@ export async function getUserConversations(
           id: docSnapshot.id,
           participants: docData.participants,
           type: docData.type,
+          groupName: docData.groupName || null,
+          groupPhoto: docData.groupPhoto || null,
+          createdBy: docData.createdBy || docData.participants[0],
           lastMessage: docData.lastMessage || '',
           lastMessageTime: docData.lastMessageTime?.toMillis() || Date.now(),
           createdAt: docData.createdAt?.toMillis() || Date.now(),
@@ -352,6 +386,131 @@ export async function deleteConversation(conversationId: string): Promise<void> 
 }
 
 /**
+ * Create a new group conversation
+ * Validates group name, looks up participants by email, creates group in Firestore and SQLite
+ * 
+ * @param {string} groupName - Name of the group (3-50 characters)
+ * @param {string[]} participantEmails - Array of participant email addresses
+ * @param {string} creatorId - User ID of the group creator
+ * @returns {Promise<Conversation>} Newly created group conversation
+ * @throws {Error} If validation fails, users not found, or insufficient participants
+ * 
+ * @example
+ * const group = await createGroup('Team Project', ['alice@example.com', 'bob@example.com'], 'user123');
+ */
+export async function createGroup(
+  groupName: string,
+  participantEmails: string[],
+  creatorId: string
+): Promise<Conversation> {
+  try {
+    // Validate group name
+    const nameValidation = validateGroupName(groupName);
+    if (!nameValidation.valid) {
+      throw new Error(nameValidation.error);
+    }
+
+    // Look up user IDs from emails
+    const participantIds = await getUserIdsByEmails(participantEmails);
+
+    // Check if all emails were found
+    if (participantIds.length !== participantEmails.length) {
+      throw new Error('One or more users not found. Please check email addresses.');
+    }
+
+    // Add creator to participants if not already included
+    const allParticipants = [creatorId, ...participantIds];
+    const uniqueParticipants = [...new Set(allParticipants)];
+
+    // Validate minimum participants (3 total including creator)
+    const participantValidation = validateMinimumParticipants(uniqueParticipants.length);
+    if (!participantValidation.valid) {
+      throw new Error(participantValidation.error);
+    }
+
+    // Create group conversation
+    const groupConversation = await createConversation(
+      uniqueParticipants,
+      'group',
+      groupName.trim(),
+      creatorId
+    );
+
+    console.log(`[ConversationService] Created group '${groupName}' with ${uniqueParticipants.length} members`);
+    return groupConversation;
+  } catch (error) {
+    console.error('[ConversationService] Error creating group:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add members to an existing group conversation
+ * Looks up users by email, checks for duplicates, adds to participants array
+ * 
+ * @param {string} conversationId - ID of the group conversation
+ * @param {string[]} newMemberEmails - Array of email addresses to add
+ * @returns {Promise<void>}
+ * @throws {Error} If conversation not found, users not found, or duplicates detected
+ * 
+ * @example
+ * await addMembersToGroup('conv_123', ['charlie@example.com', 'david@example.com']);
+ */
+export async function addMembersToGroup(
+  conversationId: string,
+  newMemberEmails: string[]
+): Promise<void> {
+  try {
+    // Get existing conversation
+    const conversation = await getConversationById(conversationId);
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    // Verify it's a group conversation
+    if (conversation.type !== 'group') {
+      throw new Error('Can only add members to group conversations');
+    }
+
+    // Look up user IDs from emails
+    const newMemberIds = await getUserIdsByEmails(newMemberEmails);
+
+    // Check if all emails were found
+    if (newMemberIds.length !== newMemberEmails.length) {
+      throw new Error('One or more users not found. Please check email addresses.');
+    }
+
+    // Check for duplicates
+    const duplicates = newMemberIds.filter((id) =>
+      conversation.participants.includes(id)
+    );
+
+    if (duplicates.length > 0) {
+      throw new Error('One or more users are already in the group');
+    }
+
+    // Update Firestore - add new members using arrayUnion
+    const conversationRef = doc(db, 'conversations', conversationId);
+    await updateDoc(conversationRef, {
+      participants: arrayUnion(...newMemberIds),
+      updatedAt: Timestamp.fromMillis(Date.now()),
+    });
+
+    // Update local conversation object
+    conversation.participants.push(...newMemberIds);
+    conversation.updatedAt = Date.now();
+
+    // Save to SQLite
+    await sqliteService.saveConversation(conversation);
+
+    console.log(`[ConversationService] Added ${newMemberIds.length} members to group ${conversationId}`);
+  } catch (error) {
+    console.error('[ConversationService] Error adding members to group:', error);
+    throw error;
+  }
+}
+
+/**
  * Export all functions
  */
 export default {
@@ -360,5 +519,7 @@ export default {
   getUserConversations,
   updateConversationLastMessage,
   deleteConversation,
+  createGroup,
+  addMembersToGroup,
 };
 

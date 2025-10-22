@@ -114,11 +114,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
             isOwnMessage ? styles.ownBubble : styles.otherBubble,
           ]}
         >
-          {/* Sender Name (for other users' messages, if not grouped) */}
-          {!isOwnMessage && !isGrouped && senderName && (
-            <Text style={styles.senderName}>{senderName}</Text>
-          )}
-
           {/* Message Text */}
           <Text
             style={[

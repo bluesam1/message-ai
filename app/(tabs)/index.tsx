@@ -127,12 +127,28 @@ export default function ConversationsScreen() {
   };
 
   /**
+   * Navigate to new group screen
+   */
+  const startNewGroup = () => {
+    router.push('/new-group');
+  };
+
+  /**
    * Render a conversation item
    */
   const renderConversationItem = ({ item }: { item: ConversationWithParticipants }) => {
-    const displayName = item.otherParticipantName || 'Unknown User';
-    const photoURL = item.otherParticipantPhotoURL;
+    const isGroup = item.type === 'group';
+    const displayName = isGroup 
+      ? (item.groupName || 'Unnamed Group')
+      : (item.otherParticipantName || 'Unknown User');
+    const photoURL = isGroup ? item.groupPhoto : item.otherParticipantPhotoURL;
     const timeAgo = item.lastMessageTime ? getRelativeTime(item.lastMessageTime) : '';
+    const memberCount = isGroup ? item.participants.length : 0;
+
+    // Group avatar shows first letter of group name, with different color
+    const avatarStyle = isGroup 
+      ? [styles.avatar, styles.groupAvatarPlaceholder] 
+      : [styles.avatar, styles.avatarPlaceholder];
 
     return (
       <TouchableOpacity
@@ -144,7 +160,7 @@ export default function ConversationsScreen() {
         {photoURL ? (
           <Image source={{ uri: photoURL }} style={styles.avatar} />
         ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
+          <View style={avatarStyle}>
             <Text style={styles.avatarText}>
               {displayName.charAt(0).toUpperCase()}
             </Text>
@@ -157,6 +173,15 @@ export default function ConversationsScreen() {
             <Text style={styles.displayName}>{displayName}</Text>
             {timeAgo && <Text style={styles.timestamp}>{timeAgo}</Text>}
           </View>
+          
+          {/* Member count for groups */}
+          {isGroup && (
+            <Text style={styles.memberCount}>
+              {memberCount} {memberCount === 1 ? 'member' : 'members'}
+            </Text>
+          )}
+          
+          {/* Last message */}
           {item.lastMessage && (
             <Text style={styles.lastMessage} numberOfLines={1} ellipsizeMode="tail">
               {item.lastMessage}
@@ -213,14 +238,24 @@ export default function ConversationsScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      {/* New Chat Button */}
-      <TouchableOpacity
-        style={styles.newChatButton}
-        onPress={startNewChat}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.newChatButtonText}>+</Text>
-      </TouchableOpacity>
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={styles.newGroupButton}
+          onPress={startNewGroup}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.newGroupButtonText}>👥</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.newChatButton}
+          onPress={startNewChat}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.newChatButtonText}>+</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -251,6 +286,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  groupAvatarPlaceholder: {
+    backgroundColor: '#34C759',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   avatarText: {
     color: '#FFFFFF',
     fontSize: 24,
@@ -273,6 +313,12 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 12,
     color: '#8E8E93',
+  },
+  memberCount: {
+    fontSize: 12,
+    color: '#34C759',
+    fontWeight: '500',
+    marginBottom: 2,
   },
   lastMessage: {
     fontSize: 14,
@@ -309,10 +355,14 @@ const styles = StyleSheet.create({
     color: '#FF3B30',
     textAlign: 'center',
   },
-  newChatButton: {
+  actionButtons: {
     position: 'absolute',
     right: 20,
     bottom: 20,
+    flexDirection: 'column',
+    gap: 12,
+  },
+  newChatButton: {
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -330,5 +380,21 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '300',
     marginTop: -2,
+  },
+  newGroupButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#34C759',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  newGroupButtonText: {
+    fontSize: 24,
   },
 });

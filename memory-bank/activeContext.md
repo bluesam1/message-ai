@@ -1,10 +1,10 @@
 # Active Context
 
 ## Current Status
-**Phase:** PRD 04 Complete ✅ - Offline Support & Sync Implemented  
-**Date:** October 21, 2025  
-**Branch:** prd-04-offline-sync  
-**App Status:** Requires development build (not Expo Go compatible) - Core messaging + offline support complete
+**Phase:** PRD 05 Complete ✅ - Group Chat Implemented  
+**Date:** October 22, 2025  
+**Branch:** prd-05-group-chat  
+**App Status:** Requires development build (not Expo Go compatible) - Core messaging + offline support + group chat complete
 
 ## What Just Happened
 
@@ -46,6 +46,22 @@
 13. **Firebase Configuration:** Firestore rules and indexes configured for deployment
 14. **Database Init:** SQLite initialization in all relevant screens
 
+### ✅ Completed (PRD 05 - Group Chat)
+1. **Data Model Extension:** Extended Conversation interface with groupName, groupPhoto, createdBy fields
+2. **Group Validation:** Utilities for validating group names, emails, participants (minimum 2 members)
+3. **User Lookup Service:** Functions to find users by email, validate emails, batch lookups
+4. **Conversation Service Enhancement:** createGroup() and addMembersToGroup() functions
+5. **Group Creation UI:** Multi-step flow (name → members → review) with GroupCreation component
+6. **Group Member Picker:** Email-based member addition with validation and duplicate prevention
+7. **Group Info Screen:** Display group details, member list, add members functionality
+8. **Conversation List Updates:** Groups show with distinct styling, group icon, member count
+9. **Chat Screen Enhancements:** Group-specific header with member count and info button
+10. **SQLite Schema Migration:** Robust migration for new group fields with column existence checking
+11. **UI Polish:** Fixed header layouts, improved spacing, proper touch feedback
+12. **Real-Time Sync Fix:** Fixed listener closure bug preventing bidirectional message sync
+13. **Timestamp Safety:** Added toMillis() helper to handle both Firestore Timestamps and numbers
+14. **Unit Tests:** Comprehensive tests for validation, user lookup, and conversation service (160+ total tests)
+
 ### ✅ Completed (PRD 04 - Offline Support & Sync)
 1. **Network Service:** Real-time connectivity monitoring with NetInfo, listener pattern for state changes
 2. **Offline Queue:** SQLite-based pending messages table with retry count tracking
@@ -77,21 +93,21 @@ All PRDs are in `/tasks` directory:
 ## Current Focus
 
 ### Immediate Next Steps
-**PRIORITY:** Commit PRD 04 and prepare for PRD 05 (Group Chat)
+**PRIORITY:** Commit PRD 05 and prepare for PRD 06 (Read Receipts & Presence)
 
 #### Next Actions
-1. Commit PRD 04 implementation to git
-2. Test on Android development build (iOS requires dev build, not Expo Go)
-3. Begin PRD 05 planning - Group Chat
-4. Consider iOS development build strategy (EAS Build)
+1. Commit PRD 05 implementation to git
+2. Update memory bank with PRD 05 completion
+3. Move PRD 05 files to completed folder
+4. Begin PRD 06 planning - Read Receipts & Presence
 
-#### PRD 05 Goals (Upcoming)
-- Create groups with 3+ participants
-- Add members by email lookup
-- Group conversation creation
-- Group message broadcasting
-- Group info screen with member list
-- Validation for minimum participants
+#### PRD 06 Goals (Upcoming)
+- Read receipt tracking
+- Mark messages as read on view
+- Online/offline status indicators
+- Last seen timestamps
+- Presence in conversation list and chat header
+- Efficient debounced presence updates
 
 ## Active Decisions
 
@@ -218,6 +234,18 @@ PRD 08 (Notifications) ────┘  ← Can develop in parallel
 9. **iOS Development on Windows:** Use EAS Build cloud service for iOS builds (free for simulator, $99/year Apple Developer for device)
 10. **Pre-existing Issues:** Always verify bugs exist on main branch before attributing to new changes
 
+### From PRD 05 Implementation
+1. **Unified Data Model:** Using `participants[]` + `type` field is superior to separate models - works for both direct and group chats
+2. **Closure Bugs in Listeners:** Real-time listeners must use current state, not captured variables - avoid stale closure bugs
+3. **SQLite Migration Strategy:** Check column existence with `PRAGMA table_info()` before ALTER TABLE - safe for existing databases
+4. **Timestamp Type Safety:** Firestore returns both Timestamp objects and numbers - create helper functions to handle both
+5. **Optimistic UI Conflicts:** Don't manually replace optimistic messages - let Firestore listener handle all updates to avoid conflicts
+6. **Minimum Participant Flexibility:** 2-person groups are valid (allows 1-on-1 → group conversion) - don't over-constrain
+7. **Email-Based User Lookup:** Firestore `in` query works well for batch user lookups (up to 10 items per query)
+8. **Component State Management:** useEffect cleanup is critical - track `isInitialMount` to avoid false triggers
+9. **Modal Header UX:** Proper touch feedback (`activeOpacity`) and spacing (`paddingTop`) are essential for native feel
+10. **Debug Logging Strategy:** Add comprehensive logging during debugging, clean up before commit - keep only error logs
+
 ### From PRD Analysis
 1. **Test Coverage Focus:** Focus tests on utils and business logic, skip UI/Firebase tests ✅ VALIDATED
 2. **Performance Budget:** FlatList optimizations are critical for 60 FPS goal ✅ ACHIEVED
@@ -247,10 +275,11 @@ Currently using:
 - Workspace: `C:\Users\SamExel\repos\message-ai`
 
 ### Git Status
-- Initial commits made
-- PRD 01 implementation committed
-- Branch: main
+- PRD 01-05 implementations committed
+- Branch: prd-05-group-chat
+- Last commit: feat(prd-05): implement group chat functionality
 - Clean working directory
+- 198 tests passing
 
 ## Questions Resolved
 
@@ -268,11 +297,23 @@ Currently using:
 - ✅ How to resolve React version conflicts? → **Lock to React 19.1.0 exactly for RN 0.81.4 compatibility**
 - ✅ Testing library compatibility issues? → **Deferred React Native Testing Library, using Jest for unit tests**
 
-### For PRD 03 (Upcoming)
-- ❓ Should messages be paginated from the start? → Limit to 100 most recent?
-- ❓ How to handle message deduplication between SQLite and Firestore?
-- ❓ What's the best way to achieve 60 FPS scrolling with FlatList?
-- ❓ Should we implement typing indicators in MVP?
+### For PRD 03 (Completed)
+- ✅ Should messages be paginated from the start? → **Yes, limit to 100 most recent with Firestore query**
+- ✅ How to handle message deduplication between SQLite and Firestore? → **mergeMessageLists() utility with ID-based deduplication**
+- ✅ What's the best way to achieve 60 FPS scrolling with FlatList? → **React.memo + getItemLayout + windowSize optimization**
+- ✅ Should we implement typing indicators in MVP? → **Deferred to post-MVP (not in core PRDs)**
+
+### For PRD 04 (Completed)
+- ✅ How to detect offline status reliably? → **@react-native-community/netinfo with listener pattern**
+- ✅ Where to store pending messages? → **SQLite pendingMessages table with retry count tracking**
+- ✅ When to trigger sync? → **On reconnect via networkService.subscribe() + manual retry button**
+- ✅ How to prevent duplicate uploads? → **Check Firestore message existence before upload**
+
+### For PRD 05 (Completed)
+- ✅ How to support both direct and group chats? → **Unified model with participants[] + type field**
+- ✅ What's the minimum group size? → **2 participants (creator + 1 other) for flexibility**
+- ✅ How to add members to groups? → **Email-based lookup with getUserByEmail() Firestore query**
+- ✅ How to handle existing databases? → **Robust SQLite migration with PRAGMA table_info() checks**
 
 ## Next Session Prep
 
@@ -292,25 +333,23 @@ Currently using:
 
 ---
 
-**Next Action:** Start PRD 03 - Core One-on-One Messaging  
-**Expected Duration:** 5 hours  
-**Goal:** Users can send and receive real-time messages with offline support
+**Next Action:** Start PRD 06 - Read Receipts & Presence  
+**Expected Duration:** 2 hours  
+**Goal:** Users can see read receipts and online/offline status
 
 **Key Files to Create:**
-- `src/services/firebase/firestoreService.ts` - Firestore CRUD operations
-- `src/services/sqlite/sqliteService.ts` - Local database operations
-- `src/services/messaging/messageService.ts` - Message business logic
-- `app/(tabs)/index.tsx` - Conversations list (update placeholder)
-- `app/chat/[id].tsx` - Chat screen with message history
-- `src/components/chat/MessageBubble.tsx` - Individual message component
-- `src/components/chat/MessageInput.tsx` - Message input field
-- `src/utils/messageUtils.ts` - Message formatting utilities
+- `src/services/presence/presenceService.ts` - Presence tracking service
+- `src/hooks/usePresence.ts` - React hook for presence state
+- `src/utils/presenceUtils.ts` - Presence utilities (debounce, formatLastSeen)
+- Update `src/components/chat/MessageBubble.tsx` - Add read receipt indicators
+- Update `app/(tabs)/index.tsx` - Add presence indicators to conversation list
+- Update `app/chat/[id].tsx` - Add presence to chat header
 
 **Key Decisions Needed:**
-- Firestore schema for `conversations` and `messages` collections
-- SQLite schema for local caching
-- Message pagination strategy (initial: 100 most recent)
-- FlatList optimization approach for 60 FPS target
+- How to efficiently update presence without overwhelming Firestore (debouncing strategy)
+- Where to store presence data (users collection or separate presence collection?)
+- How to handle onDisconnect() for automatic offline status
+- Read receipt UI design (checkmarks vs. avatars)
 
 
 

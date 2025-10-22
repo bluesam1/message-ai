@@ -14,7 +14,6 @@ import {
   retryMessage as retryMessageService,
 } from '../services/messaging/messageService';
 import { sortMessagesByTimestamp } from '../utils/messageUtils';
-import { mergeMessageLists } from '../utils/messageDeduplication';
 
 interface UseMessagesReturn {
   messages: Message[];
@@ -63,9 +62,9 @@ export default function useMessages(
 
         // Step 2: Set up real-time listener for live updates
         unsubscribe = listenToMessages(conversationId, (liveMessages) => {
-          // Merge cached and live messages (live messages override cached)
-          const mergedMessages = mergeMessageLists(cachedMessages, liveMessages);
-          const sorted = sortMessagesByTimestamp(mergedMessages).reverse();
+          // Use live messages directly from Firestore (already includes all messages)
+          // The listener is already saving to SQLite, so we don't need to merge
+          const sorted = sortMessagesByTimestamp(liveMessages).reverse();
           
           setMessages(sorted);
           setLoading(false);
@@ -111,16 +110,16 @@ export default function useMessages(
         setMessages((prev) => [tempMessage, ...prev]);
 
         // Send message to backend
-        const sentMessage = await sendMessageService(
+        await sendMessageService(
           conversationId,
           text,
           currentUserId
         );
 
-        // Replace temp message with actual message
-        setMessages((prev) =>
-          prev.map((msg) => (msg.id === tempMessage.id ? sentMessage : msg))
-        );
+        // Don't replace - let the Firestore listener handle it
+        // This prevents conflicts with the real-time update
+        // Remove the temp message
+        setMessages((prev) => prev.filter(msg => msg.id !== tempMessage.id));
       } catch (err) {
         console.error('[useMessages] Error sending message:', err);
         

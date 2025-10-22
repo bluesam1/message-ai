@@ -14,6 +14,7 @@ import { getConversationById } from '../services/messaging/conversationService';
 interface UseConversationReturn {
   conversation: Conversation | null;
   otherParticipant: User | null;
+  participants: Record<string, User>; // Map of participant IDs to User objects
   loading: boolean;
   error: string | null;
 }
@@ -32,6 +33,7 @@ export default function useConversation(
 ): UseConversationReturn {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [otherParticipant, setOtherParticipant] = useState<User | null>(null);
+  const [participants, setParticipants] = useState<Record<string, User>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,34 +52,40 @@ export default function useConversation(
 
         setConversation(conv);
 
-        // For direct conversations, fetch other participant's data
-        if (conv.type === 'direct') {
-          const otherParticipantId = conv.participants.find(
-            (id) => id !== currentUserId
+        // Fetch all participant data (excluding current user)
+        const otherParticipantIds = conv.participants.filter(
+          (id) => id !== currentUserId
+        );
+
+        if (otherParticipantIds.length > 0) {
+          // Fetch all users at once using 'in' query
+          const usersRef = collection(db, 'users');
+          const userQuery = query(
+            usersRef,
+            where('uid', 'in', otherParticipantIds)
           );
+          const userSnapshot = await getDocs(userQuery);
 
-          if (otherParticipantId) {
-            // Fetch user data
-            const usersRef = collection(db, 'users');
-            const userQuery = query(
-              usersRef,
-              where('uid', '==', otherParticipantId)
-            );
-            const userSnapshot = await getDocs(userQuery);
+          const participantsMap: Record<string, User> = {};
+          
+          userSnapshot.docs.forEach((doc) => {
+            const userData = doc.data();
+            const user: User = {
+              uid: userData.uid,
+              email: userData.email,
+              displayName: userData.displayName,
+              photoURL: userData.photoURL || null,
+              createdAt: userData.createdAt?.toMillis() || Date.now(),
+              lastSeen: userData.lastSeen?.toMillis() || Date.now(),
+            };
+            participantsMap[user.uid] = user;
+          });
 
-            if (!userSnapshot.empty) {
-              const userData = userSnapshot.docs[0].data();
-              const user: User = {
-                uid: userData.uid,
-                email: userData.email,
-                displayName: userData.displayName,
-                photoURL: userData.photoURL || null,
-                createdAt: userData.createdAt?.toMillis() || Date.now(),
-                lastSeen: userData.lastSeen?.toMillis() || Date.now(),
-              };
+          setParticipants(participantsMap);
 
-              setOtherParticipant(user);
-            }
+          // For direct conversations, set the single other participant
+          if (conv.type === 'direct' && otherParticipantIds.length === 1) {
+            setOtherParticipant(participantsMap[otherParticipantIds[0]] || null);
           }
         }
 
@@ -95,6 +103,7 @@ export default function useConversation(
   return {
     conversation,
     otherParticipant,
+    participants,
     loading,
     error,
   };

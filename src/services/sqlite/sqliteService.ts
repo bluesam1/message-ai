@@ -13,6 +13,11 @@ import { Message, Conversation, MessageStatus } from '../../types/message';
 let db: SQLite.SQLiteDatabase | null = null;
 
 /**
+ * Database initialization promise to prevent multiple concurrent initializations
+ */
+let initPromise: Promise<void> | null = null;
+
+/**
  * Database name
  */
 const DB_NAME = 'messageai.db';
@@ -21,10 +26,35 @@ const DB_NAME = 'messageai.db';
  * Initialize the SQLite database
  * Creates tables and indexes if they don't exist
  * Should be called when the app starts
+ * Safe to call multiple times - will return existing promise if already initializing
  * 
  * @returns {Promise<void>}
  */
 export async function initDatabase(): Promise<void> {
+  // If already initialized, return immediately
+  if (db) {
+    return;
+  }
+  
+  // If initialization is in progress, wait for it
+  if (initPromise) {
+    return initPromise;
+  }
+  
+  // Start initialization
+  initPromise = initDatabaseInternal();
+  
+  try {
+    await initPromise;
+  } finally {
+    initPromise = null;
+  }
+}
+
+/**
+ * Internal database initialization
+ */
+async function initDatabaseInternal(): Promise<void> {
   try {
     // Open database connection
     db = await SQLite.openDatabaseAsync(DB_NAME);
@@ -35,12 +65,35 @@ export async function initDatabase(): Promise<void> {
         id TEXT PRIMARY KEY,
         participants TEXT NOT NULL,
         type TEXT NOT NULL,
+        groupName TEXT,
+        groupPhoto TEXT,
+        createdBy TEXT NOT NULL,
         lastMessage TEXT,
         lastMessageTime INTEGER,
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL
       );
     `);
+    
+    // Migrate existing conversations table to add new columns (if they don't exist)
+    // This is safe to run multiple times - will only add columns if missing
+    try {
+      // Check if we need to migrate by checking if groupName column exists
+      const tableInfo = await db.getAllAsync(`PRAGMA table_info(conversations)`);
+      const hasGroupName = tableInfo.some((col: any) => col.name === 'groupName');
+      
+      if (!hasGroupName) {
+        await db.execAsync(`ALTER TABLE conversations ADD COLUMN groupName TEXT;`);
+        await db.execAsync(`ALTER TABLE conversations ADD COLUMN groupPhoto TEXT;`);
+        await db.execAsync(`ALTER TABLE conversations ADD COLUMN createdBy TEXT DEFAULT '';`);
+        console.log('[SQLite] Added new group columns to conversations table');
+      } else {
+        console.log('[SQLite] Group columns already exist');
+      }
+    } catch (error) {
+      // If migration fails, log but don't throw - app can still work
+      console.warn('[SQLite] Migration warning:', error);
+    }
     
     // Create messages table
     await db.execAsync(`
@@ -103,6 +156,26 @@ export async function initDatabase(): Promise<void> {
  * 
  * @returns {SQLite.SQLiteDatabase} Database instance
  */
+/**
+ * Get database instance, initializing if necessary
+ * This ensures all operations have a valid database connection
+ */
+async function ensureDb(): Promise<SQLite.SQLiteDatabase> {
+  if (!db) {
+    console.log('[SQLite] Database not initialized, initializing now...');
+    await initDatabase();
+  }
+  
+  if (!db) {
+    throw new Error('Database initialization failed');
+  }
+  
+  return db;
+}
+
+/**
+ * @deprecated Use ensureDb() instead for better error handling
+ */
 function getDb(): SQLite.SQLiteDatabase {
   if (!db) {
     throw new Error('Database not initialized. Call initDatabase() first.');
@@ -119,7 +192,7 @@ function getDb(): SQLite.SQLiteDatabase {
  */
 export async function saveMessage(message: Message): Promise<void> {
   try {
-    const database = getDb();
+    const database = await ensureDb();
     
     await database.runAsync(
       `INSERT OR REPLACE INTO messages 
@@ -158,7 +231,7 @@ export async function getMessages(
   limit: number = 100
 ): Promise<Message[]> {
   try {
-    const database = getDb();
+    const database = await ensureDb();
     
     const rows = await database.getAllAsync<any>(
       `SELECT * FROM messages 
@@ -202,7 +275,7 @@ export async function updateMessageStatus(
   status: MessageStatus
 ): Promise<void> {
   try {
-    const database = getDb();
+    const database = await ensureDb();
     
     await database.runAsync(
       `UPDATE messages SET status = ? WHERE id = ?`,
@@ -225,16 +298,19 @@ export async function updateMessageStatus(
  */
 export async function saveConversation(conversation: Conversation): Promise<void> {
   try {
-    const database = getDb();
+    const database = await ensureDb();
     
     await database.runAsync(
       `INSERT OR REPLACE INTO conversations 
-       (id, participants, type, lastMessage, lastMessageTime, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (id, participants, type, groupName, groupPhoto, createdBy, lastMessage, lastMessageTime, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         conversation.id,
         JSON.stringify(conversation.participants),
         conversation.type,
+        conversation.groupName,
+        conversation.groupPhoto,
+        conversation.createdBy,
         conversation.lastMessage,
         conversation.lastMessageTime,
         conversation.createdAt,
@@ -257,7 +333,7 @@ export async function saveConversation(conversation: Conversation): Promise<void
  */
 export async function getConversations(): Promise<Conversation[]> {
   try {
-    const database = getDb();
+    const database = await ensureDb();
     
     const rows = await database.getAllAsync<any>(
       `SELECT * FROM conversations 
@@ -269,6 +345,9 @@ export async function getConversations(): Promise<Conversation[]> {
       id: row.id,
       participants: JSON.parse(row.participants),
       type: row.type,
+      groupName: row.groupName || null,
+      groupPhoto: row.groupPhoto || null,
+      createdBy: row.createdBy || row.participants[0],
       lastMessage: row.lastMessage,
       lastMessageTime: row.lastMessageTime,
       createdAt: row.createdAt,
@@ -291,7 +370,7 @@ export async function getConversations(): Promise<Conversation[]> {
  */
 export async function getConversation(conversationId: string): Promise<Conversation | null> {
   try {
-    const database = getDb();
+    const database = await ensureDb();
     
     const row = await database.getFirstAsync<any>(
       `SELECT * FROM conversations WHERE id = ?`,
@@ -306,6 +385,9 @@ export async function getConversation(conversationId: string): Promise<Conversat
       id: row.id,
       participants: JSON.parse(row.participants),
       type: row.type,
+      groupName: row.groupName || null,
+      groupPhoto: row.groupPhoto || null,
+      createdBy: row.createdBy || JSON.parse(row.participants)[0],
       lastMessage: row.lastMessage,
       lastMessageTime: row.lastMessageTime,
       createdAt: row.createdAt,
@@ -327,7 +409,7 @@ export async function getConversation(conversationId: string): Promise<Conversat
  */
 export async function deleteMessage(messageId: string): Promise<void> {
   try {
-    const database = getDb();
+    const database = await ensureDb();
     
     await database.runAsync(
       `DELETE FROM messages WHERE id = ?`,
@@ -349,7 +431,7 @@ export async function deleteMessage(messageId: string): Promise<void> {
  */
 export async function deleteConversation(conversationId: string): Promise<void> {
   try {
-    const database = getDb();
+    const database = await ensureDb();
     
     // Delete all messages in the conversation
     await database.runAsync(
@@ -385,7 +467,7 @@ export async function updateConversationLastMessage(
   lastMessageTime: number
 ): Promise<void> {
   try {
-    const database = getDb();
+    const database = await ensureDb();
     
     await database.runAsync(
       `UPDATE conversations 
@@ -409,7 +491,7 @@ export async function updateConversationLastMessage(
  */
 export async function clearAllData(): Promise<void> {
   try {
-    const database = getDb();
+    const database = await ensureDb();
     
     await database.execAsync(`DELETE FROM messages`);
     await database.execAsync(`DELETE FROM conversations`);
