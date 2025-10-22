@@ -13,8 +13,20 @@ export default function OfflineBanner() {
   const { isOnline, isConnecting } = useNetworkStatus();
   const [showOnlineBanner, setShowOnlineBanner] = useState(false);
   const [slideAnim] = useState(new Animated.Value(-60)); // Start off-screen
+  const [wasOffline, setWasOffline] = useState(false); // Track if we were previously offline
+  const [isInitialMount, setIsInitialMount] = useState(true); // Track initial mount
 
   useEffect(() => {
+    // Skip the initial mount to avoid showing "Back online" on load
+    if (isInitialMount) {
+      setIsInitialMount(false);
+      // Set wasOffline state based on current state
+      if (!isOnline || isConnecting) {
+        setWasOffline(true);
+      }
+      return;
+    }
+
     if (!isOnline) {
       // Show offline banner - slide down
       Animated.spring(slideAnim, {
@@ -24,6 +36,7 @@ export default function OfflineBanner() {
         friction: 8,
       }).start();
       setShowOnlineBanner(false);
+      setWasOffline(true);
     } else if (isConnecting) {
       // Show reconnecting banner - slide down
       Animated.spring(slideAnim, {
@@ -32,9 +45,9 @@ export default function OfflineBanner() {
         tension: 65,
         friction: 8,
       }).start();
-    } else {
-      // Coming back online
-      // Show "back online" banner briefly, then hide
+      setWasOffline(true);
+    } else if (wasOffline) {
+      // Only show "back online" if we were previously offline
       setShowOnlineBanner(true);
       Animated.spring(slideAnim, {
         toValue: 0,
@@ -53,6 +66,8 @@ export default function OfflineBanner() {
           setShowOnlineBanner(false);
         });
       }, 2000);
+      
+      setWasOffline(false);
     }
   }, [isOnline, isConnecting]);
 

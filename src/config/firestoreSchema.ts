@@ -29,6 +29,9 @@
  *   id: string                    // Auto-generated document ID
  *   participants: string[]        // Array of user IDs participating in the conversation
  *   type: "direct" | "group"      // Type of conversation
+ *   groupName: string | null      // Group name (required for groups, null for direct)
+ *   groupPhoto: string | null     // Group photo URL (optional for groups)
+ *   createdBy: string             // User ID of the conversation creator
  *   lastMessage: string           // Preview text of the most recent message
  *   lastMessageTime: timestamp    // Firestore timestamp of the last message
  *   createdAt: timestamp          // Firestore timestamp when conversation was created
@@ -43,15 +46,32 @@
  * - Users can create conversations if they are in the participants array
  * - Users can update conversations if they are a participant
  * 
- * Example Document:
+ * Example Direct Conversation:
  * {
  *   id: "conv_1698765432101_a5b2c",
  *   participants: ["user123", "user456"],
  *   type: "direct",
+ *   groupName: null,
+ *   groupPhoto: null,
+ *   createdBy: "user123",
  *   lastMessage: "Hey, how are you?",
  *   lastMessageTime: Timestamp(1698765432101),
  *   createdAt: Timestamp(1698765000000),
  *   updatedAt: Timestamp(1698765432101)
+ * }
+ * 
+ * Example Group Conversation:
+ * {
+ *   id: "conv_1698765999999_x7y8z",
+ *   participants: ["user123", "user456", "user789"],
+ *   type: "group",
+ *   groupName: "Team Project",
+ *   groupPhoto: null,
+ *   createdBy: "user123",
+ *   lastMessage: "Let's schedule a meeting",
+ *   lastMessageTime: Timestamp(1698765999999),
+ *   createdAt: Timestamp(1698765000000),
+ *   updatedAt: Timestamp(1698765999999)
  * }
  */
 

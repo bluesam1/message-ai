@@ -1,10 +1,10 @@
 # Active Context
 
 ## Current Status
-**Phase:** PRD 04 Complete ✅ - Offline Support & Sync Implemented  
-**Date:** October 21, 2025  
-**Branch:** prd-04-offline-sync  
-**App Status:** Requires development build (not Expo Go compatible) - Core messaging + offline support complete
+**Phase:** PRD 05 Complete ✅ - Group Chat Implemented  
+**Date:** October 22, 2025  
+**Branch:** prd-05-group-chat  
+**App Status:** Requires development build (not Expo Go compatible) - Core messaging + offline support + group chat complete
 
 ## What Just Happened
 
@@ -46,6 +46,22 @@
 13. **Firebase Configuration:** Firestore rules and indexes configured for deployment
 14. **Database Init:** SQLite initialization in all relevant screens
 
+### ✅ Completed (PRD 05 - Group Chat)
+1. **Data Model Extension:** Extended Conversation interface with groupName, groupPhoto, createdBy fields
+2. **Group Validation:** Utilities for validating group names, emails, participants (minimum 2 members)
+3. **User Lookup Service:** Functions to find users by email, validate emails, batch lookups
+4. **Conversation Service Enhancement:** createGroup() and addMembersToGroup() functions
+5. **Group Creation UI:** Multi-step flow (name → members → review) with GroupCreation component
+6. **Group Member Picker:** Email-based member addition with validation and duplicate prevention
+7. **Group Info Screen:** Display group details, member list, add members functionality
+8. **Conversation List Updates:** Groups show with distinct styling, group icon, member count
+9. **Chat Screen Enhancements:** Group-specific header with member count and info button
+10. **SQLite Schema Migration:** Robust migration for new group fields with column existence checking
+11. **UI Polish:** Fixed header layouts, improved spacing, proper touch feedback
+12. **Real-Time Sync Fix:** Fixed listener closure bug preventing bidirectional message sync
+13. **Timestamp Safety:** Added toMillis() helper to handle both Firestore Timestamps and numbers
+14. **Unit Tests:** Comprehensive tests for validation, user lookup, and conversation service (160+ total tests)
+
 ### ✅ Completed (PRD 04 - Offline Support & Sync)
 1. **Network Service:** Real-time connectivity monitoring with NetInfo, listener pattern for state changes
 2. **Offline Queue:** SQLite-based pending messages table with retry count tracking
@@ -77,21 +93,21 @@ All PRDs are in `/tasks` directory:
 ## Current Focus
 
 ### Immediate Next Steps
-**PRIORITY:** Commit PRD 04 and prepare for PRD 05 (Group Chat)
+**PRIORITY:** Commit PRD 05 and prepare for PRD 06 (Read Receipts & Presence)
 
 #### Next Actions
-1. Commit PRD 04 implementation to git
-2. Test on Android development build (iOS requires dev build, not Expo Go)
-3. Begin PRD 05 planning - Group Chat
-4. Consider iOS development build strategy (EAS Build)
+1. Commit PRD 05 implementation to git
+2. Update memory bank with PRD 05 completion
+3. Move PRD 05 files to completed folder
+4. Begin PRD 06 planning - Read Receipts & Presence
 
-#### PRD 05 Goals (Upcoming)
-- Create groups with 3+ participants
-- Add members by email lookup
-- Group conversation creation
-- Group message broadcasting
-- Group info screen with member list
-- Validation for minimum participants
+#### PRD 06 Goals (Upcoming)
+- Read receipt tracking
+- Mark messages as read on view
+- Online/offline status indicators
+- Last seen timestamps
+- Presence in conversation list and chat header
+- Efficient debounced presence updates
 
 ## Active Decisions
 

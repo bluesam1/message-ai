@@ -25,6 +25,17 @@ import { networkService } from '../network/networkService';
 import * as offlineQueueService from './offlineQueueService';
 
 /**
+ * Safely convert Firestore Timestamp to milliseconds
+ * Handles cases where value might already be a number or undefined
+ */
+function toMillis(value: any): number {
+  if (!value) return Date.now();
+  if (typeof value === 'number') return value;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  return Date.now();
+}
+
+/**
  * Send a message with optimistic UI update
  * 
  * Flow:
@@ -202,7 +213,10 @@ export function listenToMessages(
       limit(100)
     );
 
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+    const unsubscribe = onSnapshot(
+      q,
+      { includeMetadataChanges: false }, // Only fire on actual server changes
+      async (querySnapshot) => {
       const messages: Message[] = [];
 
       for (const docSnapshot of querySnapshot.docs) {
@@ -213,10 +227,10 @@ export function listenToMessages(
           senderId: docData.senderId,
           text: docData.text,
           imageUrl: docData.imageUrl || null,
-          timestamp: docData.timestamp?.toMillis() || Date.now(),
+          timestamp: toMillis(docData.timestamp),
           status: docData.status as MessageStatus,
           readBy: docData.readBy || [],
-          createdAt: docData.createdAt?.toMillis() || Date.now(),
+          createdAt: toMillis(docData.createdAt),
         };
 
         messages.push(message);
@@ -225,10 +239,11 @@ export function listenToMessages(
         await sqliteService.saveMessage(message);
       }
 
-      console.log(`[MessageService] Received ${messages.length} messages from Firestore`);
-
       // Call callback with updated messages
       onMessagesUpdate(messages);
+    },
+    (error) => {
+      console.error(`[MessageService] Listener error for conversation ${conversationId}:`, error);
     });
 
     return unsubscribe;

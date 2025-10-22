@@ -68,6 +68,15 @@ export interface Conversation {
   /** Conversation type (direct or group) */
   type: ConversationType;
   
+  /** Group name (required for group conversations, null for direct) */
+  groupName: string | null;
+  
+  /** Group photo URL (optional for group conversations) */
+  groupPhoto: string | null;
+  
+  /** User ID of the conversation creator (for groups, the user who created it) */
+  createdBy: string;
+  
   /** Preview of the last message sent */
   lastMessage: string;
   

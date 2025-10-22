@@ -8,11 +8,12 @@
  */
 
 import { useEffect } from 'react';
-import { useRouter, useSegments, Slot } from 'expo-router';
+import { useRouter, useSegments, Stack } from 'expo-router';
 import { LogBox } from 'react-native';
 import { AuthProvider, useAuth } from '../src/store/AuthContext';
 import { networkService } from '../src/services/network/networkService';
 import { syncPendingMessages } from '../src/services/messaging/syncService';
+import { initDatabase } from '../src/services/sqlite/sqliteService';
 
 // Temporarily disable LogBox to see the actual app
 LogBox.ignoreAllLogs(true);
@@ -36,11 +37,28 @@ function RootLayoutNav() {
     }
   }, [user, loading, segments]);
 
-  return <Slot />;
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false, // Hide header by default, individual screens can override
+      }}
+    >
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="chat/[id]" options={{ headerShown: true }} />
+      <Stack.Screen name="new-chat" options={{ headerShown: true, title: 'New Chat' }} />
+      <Stack.Screen name="new-group" options={{ headerShown: true, title: 'New Group' }} />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {
   useEffect(() => {
+    // Initialize SQLite database as early as possible
+    initDatabase().catch((error) => {
+      console.error('Failed to initialize database:', error);
+    });
+
     // Initialize network monitoring service
     networkService.initialize();
 
