@@ -22,9 +22,32 @@ import {
   getDocs,
   orderBy,
   limit,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { User } from '../../types/user';
+
+/**
+ * Helper function to safely convert various timestamp formats to milliseconds
+ */
+function toMillis(timestamp: any): number {
+  if (!timestamp) {
+    return Date.now();
+  }
+  
+  // If it's already a number, return it
+  if (typeof timestamp === 'number') {
+    return timestamp;
+  }
+  
+  // If it's a Firestore Timestamp with toMillis method
+  if (timestamp && typeof timestamp.toMillis === 'function') {
+    return timestamp.toMillis();
+  }
+  
+  // Fallback
+  return Date.now();
+}
 
 interface UserPickerProps {
   /** Current user ID (to exclude from search results) */
@@ -81,8 +104,9 @@ export default function UserPicker({
           email: doc.data().email,
           displayName: doc.data().displayName,
           photoURL: doc.data().photoURL || null,
-          createdAt: doc.data().createdAt?.toMillis() || Date.now(),
-          lastSeen: doc.data().lastSeen?.toMillis() || Date.now(),
+          online: doc.data().online || false,
+          createdAt: toMillis(doc.data().createdAt),
+          lastSeen: toMillis(doc.data().lastSeen),
         }))
         .filter((user) => user.uid !== currentUserId);
 
@@ -102,8 +126,9 @@ export default function UserPicker({
           email: doc.data().email,
           displayName: doc.data().displayName,
           photoURL: doc.data().photoURL || null,
-          createdAt: doc.data().createdAt?.toMillis() || Date.now(),
-          lastSeen: doc.data().lastSeen?.toMillis() || Date.now(),
+          online: doc.data().online || false,
+          createdAt: toMillis(doc.data().createdAt),
+          lastSeen: toMillis(doc.data().lastSeen),
         }))
         .filter((user) => user.uid !== currentUserId);
 

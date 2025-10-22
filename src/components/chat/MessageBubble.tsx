@@ -25,6 +25,10 @@ interface MessageBubbleProps {
   isGrouped?: boolean;
   /** Callback for retry button (for failed messages) */
   onRetry?: () => void;
+  /** Whether the message has been read (for read receipts) */
+  isRead?: boolean;
+  /** Total number of participants (for group read receipts) */
+  totalParticipants?: number;
 }
 
 /**
@@ -40,45 +44,89 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
     showTimestamp = false,
     isGrouped = false,
     onRetry,
+    isRead = false,
+    totalParticipants,
   }) => {
     /**
-     * Render message status indicator
+     * Render message status indicator with read receipts
      */
     const renderStatusIndicator = () => {
       if (!isOwnMessage) return null;
 
-      switch (message.status) {
-        case 'pending':
-          return (
-            <View style={styles.statusContainer}>
-              <Ionicons name="time-outline" size={12} color="#8E8E93" />
-            </View>
-          );
-        case 'sent':
-          return (
-            <View style={styles.statusContainer}>
-              <Ionicons name="checkmark" size={14} color="#8E8E93" />
-            </View>
-          );
-        case 'delivered':
-          return (
-            <View style={styles.statusContainer}>
-              <Ionicons name="checkmark-done" size={14} color="#8E8E93" />
-            </View>
-          );
-        case 'failed':
-          return (
-            <TouchableOpacity
-              style={styles.statusContainer}
-              onPress={onRetry}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="alert-circle" size={14} color="#FF3B30" />
-            </TouchableOpacity>
-          );
-        default:
-          return null;
+      // Failed status takes precedence
+      if (message.status === 'failed') {
+        return (
+          <TouchableOpacity
+            style={styles.statusContainer}
+            onPress={onRetry}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="alert-circle" size={14} color="#FF3B30" />
+          </TouchableOpacity>
+        );
       }
+
+      // Pending status
+      if (message.status === 'pending') {
+        return (
+          <View style={styles.statusContainer}>
+            <Ionicons name="time-outline" size={12} color="#8E8E93" />
+          </View>
+        );
+      }
+
+      // Read receipt: Double checkmark (blue) when read
+      if (isRead) {
+        return (
+          <View style={styles.statusContainer}>
+            <Ionicons name="checkmark-done" size={14} color="#34C759" />
+          </View>
+        );
+      }
+
+      // Delivered: Double checkmark (gray)
+      if (message.status === 'delivered') {
+        return (
+          <View style={styles.statusContainer}>
+            <Ionicons name="checkmark-done" size={14} color="#8E8E93" />
+          </View>
+        );
+      }
+
+      // Sent: Single checkmark (gray)
+      if (message.status === 'sent') {
+        return (
+          <View style={styles.statusContainer}>
+            <Ionicons name="checkmark" size={14} color="#8E8E93" />
+          </View>
+        );
+      }
+
+      return null;
+    };
+
+    /**
+     * Render group read receipt count if applicable
+     */
+    const renderGroupReadReceipt = () => {
+      if (!isOwnMessage || !totalParticipants || totalParticipants <= 2) {
+        return null; // Only show for group chats
+      }
+
+      const readCount = message.readBy?.length || 0;
+      // Subtract 1 because sender is in readBy but we don't count them
+      const othersReadCount = Math.max(0, readCount - 1);
+      const totalOthers = totalParticipants - 1;
+
+      if (othersReadCount === 0) {
+        return null; // No one has read yet
+      }
+
+      return (
+        <Text style={styles.readReceiptText}>
+          Read by {othersReadCount} of {totalOthers}
+        </Text>
+      );
     };
 
     return (
@@ -138,6 +186,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
             )}
             {renderStatusIndicator()}
           </View>
+
+          {/* Group Read Receipt */}
+          {renderGroupReadReceipt()}
         </View>
       </View>
     );
@@ -232,6 +283,12 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     marginLeft: 4,
+  },
+  readReceiptText: {
+    fontSize: 10,
+    color: '#8E8E93',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
 });
 

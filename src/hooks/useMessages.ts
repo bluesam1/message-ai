@@ -2,9 +2,10 @@
  * useMessages Hook
  * Custom hook for managing message state and real-time listeners
  * Implements cache-first loading strategy and optimistic updates
+ * Automatically marks messages as read when conversation is viewed
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Unsubscribe } from 'firebase/firestore';
 import { Message } from '../types/message';
 import {
@@ -13,6 +14,7 @@ import {
   listenToMessages,
   retryMessage as retryMessageService,
 } from '../services/messaging/messageService';
+import { readReceiptService } from '../services/messaging/readReceiptService';
 import { sortMessagesByTimestamp } from '../utils/messageUtils';
 
 interface UseMessagesReturn {
@@ -85,6 +87,42 @@ export default function useMessages(
       }
     };
   }, [conversationId]);
+
+  /**
+   * Mark messages as read after viewing them for 1 second
+   * Debounced to ensure messages are actually viewed
+   */
+  useEffect(() => {
+    // Don't mark as read if still loading or no messages
+    if (loading || messages.length === 0) {
+      return;
+    }
+
+    // Delay marking as read by 1 second to ensure user is viewing the conversation
+    const timer = setTimeout(async () => {
+      try {
+        // Get unread messages (messages not sent by current user and not already read)
+        const unreadMessageIds = messages
+          .filter((msg) => {
+            const readBy = msg.readBy || [];
+            return msg.senderId !== currentUserId && !readBy.includes(currentUserId);
+          })
+          .map((msg) => msg.id);
+
+        if (unreadMessageIds.length > 0) {
+          await readReceiptService.markMessagesAsRead(unreadMessageIds, currentUserId);
+          console.log(`[useMessages] Marked ${unreadMessageIds.length} messages as read`);
+        }
+      } catch (err) {
+        console.error('[useMessages] Error marking messages as read:', err);
+        // Don't throw - read receipts are not critical
+      }
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [messages, currentUserId, loading]);
 
   /**
    * Send a message

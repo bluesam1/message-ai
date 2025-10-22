@@ -484,6 +484,54 @@ export async function updateConversationLastMessage(
 }
 
 /**
+ * Mark multiple messages as read by adding a user ID to their readBy array
+ * Updates the readBy field in local SQLite database
+ * 
+ * @param {string[]} messageIds - Array of message IDs to mark as read
+ * @param {string} userId - ID of user marking messages as read
+ * @returns {Promise<void>}
+ */
+export async function markMessagesAsRead(
+  messageIds: string[],
+  userId: string
+): Promise<void> {
+  if (messageIds.length === 0) {
+    return;
+  }
+
+  try {
+    const database = await ensureDb();
+
+    // Update each message's readBy array
+    // SQLite stores readBy as a JSON string
+    for (const messageId of messageIds) {
+      // Get current readBy array
+      const result = await database.getFirstAsync<{ readBy: string }>(
+        `SELECT readBy FROM messages WHERE id = ?`,
+        [messageId]
+      );
+
+      if (result) {
+        // Parse readBy array, add userId if not present, stringify back
+        const readBy: string[] = JSON.parse(result.readBy || '[]');
+        if (!readBy.includes(userId)) {
+          readBy.push(userId);
+          await database.runAsync(
+            `UPDATE messages SET readBy = ? WHERE id = ?`,
+            [JSON.stringify(readBy), messageId]
+          );
+        }
+      }
+    }
+
+    console.log(`[SQLite] Marked ${messageIds.length} messages as read for user ${userId}`);
+  } catch (error) {
+    console.error('[SQLite] Failed to mark messages as read:', error);
+    throw error;
+  }
+}
+
+/**
  * Clear all data from the database
  * WARNING: This will delete all messages and conversations
  * 
@@ -523,13 +571,14 @@ export async function closeDatabase(): Promise<void> {
 }
 
 /**
- * Export all functions for testing
+ * Export SQLite service object
  */
-export default {
+export const sqliteService = {
   initDatabase,
   saveMessage,
   getMessages,
   updateMessageStatus,
+  markMessagesAsRead,
   saveConversation,
   getConversations,
   getConversation,
@@ -539,4 +588,9 @@ export default {
   clearAllData,
   closeDatabase,
 };
+
+/**
+ * Export all functions for testing (default export)
+ */
+export default sqliteService;
 

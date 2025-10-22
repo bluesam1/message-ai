@@ -16,11 +16,33 @@ import {
 } from 'react-native';
 import { Conversation } from '../../types/message';
 import { User } from '../../types/user';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import GroupMemberPicker, { PendingMember } from './GroupMemberPicker';
 import { addMembersToGroup } from '../../services/messaging/conversationService';
 import { useAuth } from '../../store/AuthContext';
+
+/**
+ * Helper function to safely convert various timestamp formats to milliseconds
+ */
+function toMillis(timestamp: any): number {
+  if (!timestamp) {
+    return Date.now();
+  }
+  
+  // If it's already a number, return it
+  if (typeof timestamp === 'number') {
+    return timestamp;
+  }
+  
+  // If it's a Firestore Timestamp with toMillis method
+  if (timestamp && typeof timestamp.toMillis === 'function') {
+    return timestamp.toMillis();
+  }
+  
+  // Fallback
+  return Date.now();
+}
 
 interface GroupInfoProps {
   conversation: Conversation;
@@ -67,8 +89,9 @@ export default function GroupInfo({
               email: userData.email,
               displayName: userData.displayName,
               photoURL: userData.photoURL || null,
-              createdAt: userData.createdAt?.toMillis() || Date.now(),
-              lastSeen: userData.lastSeen?.toMillis() || Date.now(),
+              online: userData.online || false,
+              createdAt: toMillis(userData.createdAt),
+              lastSeen: toMillis(userData.lastSeen),
               isCreator: uid === conversation.createdBy,
             } as MemberInfo;
           }
@@ -125,8 +148,9 @@ export default function GroupInfo({
           email: userData.email,
           displayName: userData.displayName,
           photoURL: userData.photoURL || null,
-          createdAt: userData.createdAt?.toMillis() || Date.now(),
-          lastSeen: userData.lastSeen?.toMillis() || Date.now(),
+          online: userData.online || false,
+          createdAt: toMillis(userData.createdAt),
+          lastSeen: toMillis(userData.lastSeen),
           isCreator: false,
         };
       });

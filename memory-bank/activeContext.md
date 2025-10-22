@@ -1,10 +1,10 @@
 # Active Context
 
 ## Current Status
-**Phase:** PRD 05 Complete ✅ - Group Chat Implemented  
+**Phase:** PRD 06 Complete ✅ - Read Receipts & Presence Implemented  
 **Date:** October 22, 2025  
-**Branch:** prd-05-group-chat  
-**App Status:** Requires development build (not Expo Go compatible) - Core messaging + offline support + group chat complete
+**Branch:** prd-06-read-receipts-presence  
+**App Status:** Requires development build (not Expo Go compatible) - Core messaging + offline support + group chat + read receipts + presence complete
 
 ## What Just Happened
 
@@ -62,6 +62,23 @@
 13. **Timestamp Safety:** Added toMillis() helper to handle both Firestore Timestamps and numbers
 14. **Unit Tests:** Comprehensive tests for validation, user lookup, and conversation service (160+ total tests)
 
+### ✅ Completed (PRD 06 - Read Receipts & Presence)
+1. **Data Model Extensions:** Added readBy array to Message type, online and lastSeen fields to User type
+2. **Read Receipt Service:** markMessagesAsRead with batch writes, getUnreadMessageIds query function
+3. **Presence Service:** Online/offline tracking with debouncing (300ms), background handling (30s delay)
+4. **Presence Utilities:** formatLastSeen, getPresenceColor, getPresenceText helper functions
+5. **Presence Hooks:** usePresence for listening to user status, usePresenceUpdates for app state management
+6. **PresenceIndicator Component:** Displays online/offline status with colored dot and text
+7. **Read Receipt Display:** MessageBubble shows checkmarks (single gray → double gray → double green)
+8. **Group Read Receipts:** "Read by X of Y" display for group messages
+9. **Automatic Read Marking:** Messages marked as read when conversation is viewed (1s debounce)
+10. **Conversation List Integration:** Presence indicators for direct chats
+11. **Chat Header Integration:** Presence status displayed for direct chats
+12. **App State Handling:** Presence updates on foreground/background with intelligent cleanup
+13. **Custom Debounce:** Implemented custom debounce function (no lodash dependency)
+14. **Firestore Schema Updates:** Documented readBy, online, and lastSeen fields in schema
+15. **Unit Tests:** Comprehensive tests for presenceUtils (17 tests) and readReceiptService (4 tests)
+
 ### ✅ Completed (PRD 04 - Offline Support & Sync)
 1. **Network Service:** Real-time connectivity monitoring with NetInfo, listener pattern for state changes
 2. **Offline Queue:** SQLite-based pending messages table with retry count tracking
@@ -93,21 +110,20 @@ All PRDs are in `/tasks` directory:
 ## Current Focus
 
 ### Immediate Next Steps
-**PRIORITY:** Commit PRD 05 and prepare for PRD 06 (Read Receipts & Presence)
+**PRIORITY:** Commit PRD 06 and prepare for PRD 07 (Image Sharing)
 
 #### Next Actions
-1. Commit PRD 05 implementation to git
-2. Update memory bank with PRD 05 completion
-3. Move PRD 05 files to completed folder
-4. Begin PRD 06 planning - Read Receipts & Presence
+1. Commit PRD 06 implementation to git
+2. Push changes to remote
+3. Begin PRD 07 planning - Image Sharing
 
-#### PRD 06 Goals (Upcoming)
-- Read receipt tracking
-- Mark messages as read on view
-- Online/offline status indicators
-- Last seen timestamps
-- Presence in conversation list and chat header
-- Efficient debounced presence updates
+#### PRD 07 Goals (Upcoming)
+- Image selection from gallery
+- Image compression and optimization
+- Firebase Storage upload
+- Progress tracking
+- Image message display
+- Retry for failed uploads
 
 ## Active Decisions
 
@@ -246,6 +262,18 @@ PRD 08 (Notifications) ────┘  ← Can develop in parallel
 9. **Modal Header UX:** Proper touch feedback (`activeOpacity`) and spacing (`paddingTop`) are essential for native feel
 10. **Debug Logging Strategy:** Add comprehensive logging during debugging, clean up before commit - keep only error logs
 
+### From PRD 06 Implementation
+1. **Presence Initialization:** Must initialize presence in AuthContext when user logs in - app state listeners alone are insufficient
+2. **Cleanup Timing:** Don't immediately mark offline on component unmount - could be navigation, not app close
+3. **Debounce Strategy:** 300ms debounce for online updates, 30s delay for offline to prevent status flicker
+4. **Custom Utilities:** Implementing simple utilities (like debounce) avoids unnecessary dependencies (lodash)
+5. **App Restart Required:** Presence service initialization code requires full app restart, not just hot reload
+6. **Timestamp Helpers:** Create robust timestamp conversion helpers (toMillis) to handle Firestore Timestamp objects and numbers
+7. **Read Receipt Batch Updates:** Use Firestore batch writes for marking multiple messages as read efficiently
+8. **Presence Display:** "Online" for online:true, otherwise format lastSeen timestamp (Just now, 5m ago, etc.)
+9. **React Native AppState:** AppState listener essential for detecting app foreground/background transitions
+10. **Type Safety:** ReturnType<typeof setTimeout> for timer types prevents TypeScript errors across environments
+
 ### From PRD Analysis
 1. **Test Coverage Focus:** Focus tests on utils and business logic, skip UI/Firebase tests ✅ VALIDATED
 2. **Performance Budget:** FlatList optimizations are critical for 60 FPS goal ✅ ACHIEVED
@@ -275,11 +303,11 @@ Currently using:
 - Workspace: `C:\Users\SamExel\repos\message-ai`
 
 ### Git Status
-- PRD 01-05 implementations committed
-- Branch: prd-05-group-chat
-- Last commit: feat(prd-05): implement group chat functionality
-- Clean working directory
-- 198 tests passing
+- PRD 01-06 implementations committed
+- Branch: prd-06-read-receipts-presence
+- Last commit: feat(prd-06): implement read receipts and presence
+- Ready to push
+- 22 new tests passing (presenceUtils + readReceiptService)
 
 ## Questions Resolved
 
@@ -333,23 +361,22 @@ Currently using:
 
 ---
 
-**Next Action:** Start PRD 06 - Read Receipts & Presence  
+**Next Action:** Start PRD 07 - Image Sharing  
 **Expected Duration:** 2 hours  
-**Goal:** Users can see read receipts and online/offline status
+**Goal:** Users can share images in conversations
 
 **Key Files to Create:**
-- `src/services/presence/presenceService.ts` - Presence tracking service
-- `src/hooks/usePresence.ts` - React hook for presence state
-- `src/utils/presenceUtils.ts` - Presence utilities (debounce, formatLastSeen)
-- Update `src/components/chat/MessageBubble.tsx` - Add read receipt indicators
-- Update `app/(tabs)/index.tsx` - Add presence indicators to conversation list
-- Update `app/chat/[id].tsx` - Add presence to chat header
+- `src/services/firebase/storageService.ts` - Firebase Storage operations
+- `src/utils/imageUtils.ts` - Image compression and optimization
+- Update `src/components/chat/MessageInput.tsx` - Add image picker button
+- `src/components/chat/ImageMessage.tsx` - Display image messages
+- Update `src/types/message.ts` - Add imageUrl field support
 
 **Key Decisions Needed:**
-- How to efficiently update presence without overwhelming Firestore (debouncing strategy)
-- Where to store presence data (users collection or separate presence collection?)
-- How to handle onDisconnect() for automatic offline status
-- Read receipt UI design (checkmarks vs. avatars)
+- Image compression strategy (target size/quality)
+- Progress tracking UI (inline or modal)
+- Retry mechanism for failed uploads
+- Image preview before sending
 
 
 

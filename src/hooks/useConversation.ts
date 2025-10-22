@@ -70,15 +70,49 @@ export default function useConversation(
           
           userSnapshot.docs.forEach((doc) => {
             const userData = doc.data();
-            const user: User = {
+            console.log('[useConversation] Fetched user data:', {
               uid: userData.uid,
               email: userData.email,
               displayName: userData.displayName,
+              hasPhotoURL: !!userData.photoURL,
+              lastSeenType: typeof userData.lastSeen,
+            });
+            
+            // Helper to convert Firestore timestamp to milliseconds
+            const toMillis = (timestamp: any): number => {
+              if (!timestamp) return Date.now();
+              if (typeof timestamp === 'number') return timestamp;
+              if (typeof timestamp.toMillis === 'function') return timestamp.toMillis();
+              if (timestamp.seconds) return timestamp.seconds * 1000;
+              return Date.now();
+            };
+            
+            const user: User = {
+              uid: userData.uid,
+              email: userData.email || '',
+              displayName: userData.displayName || userData.email || 'User',
               photoURL: userData.photoURL || null,
-              createdAt: userData.createdAt?.toMillis() || Date.now(),
-              lastSeen: userData.lastSeen?.toMillis() || Date.now(),
+              online: userData.online || false,
+              lastSeen: toMillis(userData.lastSeen),
+              createdAt: toMillis(userData.createdAt),
             };
             participantsMap[user.uid] = user;
+          });
+
+          // Create placeholder entries for any users not found in Firestore
+          otherParticipantIds.forEach((userId) => {
+            if (!participantsMap[userId]) {
+              console.warn(`[useConversation] User ${userId} not found in Firestore, creating placeholder`);
+              participantsMap[userId] = {
+                uid: userId,
+                email: '',
+                displayName: 'Unknown User',
+                photoURL: null,
+                online: false,
+                lastSeen: Date.now(),
+                createdAt: Date.now(),
+              };
+            }
           });
 
           setParticipants(participantsMap);

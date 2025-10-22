@@ -14,6 +14,7 @@ import MessageList from '../../src/components/chat/MessageList';
 import MessageInput from '../../src/components/chat/MessageInput';
 import OfflineBanner from '../../src/components/chat/OfflineBanner';
 import GroupInfo from '../../src/components/chat/GroupInfo';
+import PresenceIndicator from '../../src/components/users/PresenceIndicator';
 import { initDatabase } from '../../src/services/sqlite/sqliteService';
 
 export default function ChatScreen() {
@@ -56,7 +57,21 @@ export default function ChatScreen() {
   
   const headerSubtitle = isGroup && conversation
     ? `${conversation.participants.length} ${conversation.participants.length === 1 ? 'member' : 'members'}`
-    : (otherParticipant?.email || null);
+    : null;
+
+  // Debug participants
+  useEffect(() => {
+    if (Object.keys(participants).length > 0) {
+      console.log('[ChatScreen] Participants loaded:', {
+        count: Object.keys(participants).length,
+        participants: Object.entries(participants).map(([uid, user]) => ({
+          uid,
+          displayName: user.displayName,
+          email: user.email,
+        })),
+      });
+    }
+  }, [participants]);
 
   return (
     <>
@@ -68,6 +83,16 @@ export default function ChatScreen() {
               <Text style={styles.headerTitle} numberOfLines={1}>
                 {headerTitle || 'Chat'}
               </Text>
+              {/* Show presence for direct chats */}
+              {!isGroup && otherParticipant && (
+                <PresenceIndicator 
+                  userId={otherParticipant.uid} 
+                  showText={true}
+                  size="small"
+                  textStyle={styles.headerPresenceText}
+                />
+              )}
+              {/* Show member count for groups */}
               {headerSubtitle ? (
                 <Text style={styles.headerSubtitle} numberOfLines={1}>
                   {headerSubtitle}
@@ -103,11 +128,12 @@ export default function ChatScreen() {
           onLoadMore={loadMore}
           onRetryMessage={retryMessage}
           userNames={Object.fromEntries(
-            Object.entries(participants).map(([uid, user]) => [uid, user.displayName])
+            Object.entries(participants).map(([uid, user]) => [uid, user.displayName || user.email || 'User'])
           )}
           userPhotoURLs={Object.fromEntries(
             Object.entries(participants).map(([uid, user]) => [uid, user.photoURL || ''])
           )}
+          totalParticipants={conversation?.participants.length}
         />
 
         {/* Message Input */}
@@ -151,6 +177,10 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     marginTop: 2,
     textAlign: 'center',
+  },
+  headerPresenceText: {
+    fontSize: 11,
+    marginTop: 2,
   },
   headerButton: {
     paddingHorizontal: 16,

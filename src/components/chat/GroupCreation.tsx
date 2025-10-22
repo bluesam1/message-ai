@@ -69,15 +69,8 @@ export default function GroupCreation() {
       const memberEmails = members.map((m) => m.email);
       const conversation = await createGroup(groupName, memberEmails, user.uid);
 
-      Alert.alert('Success', 'Group created successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Navigate to the new group chat
-            router.replace(`/chat/${conversation.id}`);
-          },
-        },
-      ]);
+      // Navigate directly to the new group chat (no modal needed)
+      router.replace(`/chat/${conversation.id}`);
     } catch (error: any) {
       console.error('Error creating group:', error);
       
