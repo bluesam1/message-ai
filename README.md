@@ -41,7 +41,7 @@ A real-time messaging application built with React Native (Expo) and Firebase. F
 
 3. **Configure Firebase**
    
-   Follow the detailed guide in `FIREBASE_SETUP.md`, or quick steps:
+   Follow the detailed guide in [**_docs/FIREBASE_SETUP.md**](_docs/FIREBASE_SETUP.md), or quick steps:
    
    - Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
    - Add iOS and Android apps to your Firebase project
@@ -109,32 +109,13 @@ message-ai/
 │   ├── hooks/              # Custom React hooks
 │   ├── types/              # TypeScript definitions
 │   └── store/              # State management
-├── __tests__/              # Unit tests
 ├── assets/                 # Images, fonts, etc.
 └── android/                # Native Android project (generated)
 ```
 
-### Running Tests
-
-```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
-npm run test:coverage
-```
-
-**Coverage Requirements:** 70%+ overall
-- Utilities: 80%+
-- Business Logic: 70%+
-- Services: 60%+
-
 ### Pre-commit Hooks
 
-Tests run automatically before each commit. If tests fail, the commit is blocked.
+TypeScript compilation check runs automatically before each commit. If there are TypeScript errors, the commit is blocked.
 
 To skip (not recommended):
 ```bash
@@ -146,6 +127,51 @@ git commit --no-verify
 ```bash
 npm start
 ```
+
+## ☁️ Cloud Functions
+
+MessageAI uses Firebase Cloud Functions for server-side operations that can't be reliably handled on the client. Two functions are deployed:
+
+### 1. Presence Tracking (onPresenceChange)
+
+**What it does:**
+- Automatically mirrors user online/offline status from Realtime Database to Firestore
+- Ensures presence indicators work even when the app crashes or loses connection
+- Runs completely server-side (no client code needed)
+
+**How it works:**
+- Listens to changes in `/status/{uid}` in RTDB
+- When RTDB detects a disconnect (via `onDisconnect()` handlers), the function updates Firestore
+- Result: UI always shows accurate presence status
+
+### 2. Push Notifications (sendPushNotification)
+
+**What it does:**
+- Sends push notifications when users receive new messages
+- Uses Expo Push API for reliable delivery across platforms
+- Automatically cleans up invalid/expired tokens
+
+**Features:**
+- Supports both direct and group conversations
+- Special formatting for image messages ("📷 Sent an image")
+- Filters out sender (you don't get notifications for your own messages)
+- Notification collapsing by conversation (prevents spam)
+- Deep linking (tap notification → open conversation)
+
+### Deployment
+
+Cloud Functions are already deployed to production. If you need to redeploy:
+
+```bash
+# From project root
+firebase deploy --only functions
+```
+
+**Requirements:**
+- Firebase Blaze (pay-as-you-go) plan
+- Expected cost: **$0/month** (well within free tier)
+
+For detailed setup instructions, testing procedures, and troubleshooting, see **[CLOUD_FUNCTIONS_SETUP.md](_docs/CLOUD_FUNCTIONS_SETUP.md)**.
 
 ## 🔧 Troubleshooting
 
@@ -204,12 +230,24 @@ The following files contain secrets and are in `.gitignore`:
 
 ## 📚 Documentation
 
-- `FIREBASE_SETUP.md` - Detailed Firebase setup guide
-- `CLOUD_FUNCTIONS_SETUP.md` - Cloud Functions deployment guide
-- `EMULATOR_TESTING.md` - Firebase emulators setup
-- `memory-bank/` - Project context and decisions
-- `planning/` - Product requirements documents
-- `tasks/` - Feature-specific PRDs and task lists
+### Setup Guides
+- [**_docs/FIREBASE_SETUP.md**](_docs/FIREBASE_SETUP.md) - Complete Firebase project configuration
+- [**_docs/CLOUD_FUNCTIONS_SETUP.md**](_docs/CLOUD_FUNCTIONS_SETUP.md) - Cloud Functions deployment, testing, and troubleshooting
+  - Presence tracking setup
+  - Push notifications configuration
+  - Cost monitoring and optimization
+- [**_docs/EMULATOR_TESTING.md**](_docs/EMULATOR_TESTING.md) - Local Firebase emulator testing
+
+### Project Documentation
+- [**memory-bank/**](memory-bank/) - Project context, decisions, and architecture
+  - [projectbrief.md](memory-bank/projectbrief.md) - Project overview and goals
+  - [activeContext.md](memory-bank/activeContext.md) - Current status and next steps
+  - [systemPatterns.md](memory-bank/systemPatterns.md) - Architecture and design patterns
+  - [techContext.md](memory-bank/techContext.md) - Technology stack details
+  - [progress.md](memory-bank/progress.md) - Implementation progress tracker
+  - [productContext.md](memory-bank/productContext.md) - Product requirements and UX
+- [**planning/**](planning/) - Product Requirements Documents (PRDs)
+- [**tasks/**](tasks/) - Feature-specific task lists and completion status
 
 ## 🛠️ Tech Stack
 
@@ -218,7 +256,6 @@ The following files contain secrets and are in `.gitignore`:
 - **Backend:** Firebase (Auth, Firestore, Realtime Database, Storage, FCM)
 - **Local Database:** Expo SQLite 16.x
 - **Navigation:** Expo Router 6.x
-- **Testing:** Jest + React Native Testing Library
 - **State Management:** React Context API
 
 ## 📦 Key Dependencies
@@ -243,34 +280,19 @@ The following files contain secrets and are in `.gitignore`:
 - ✅ Image sharing
 - ✅ Foreground push notifications (Expo Push API)
 
-## 🧪 Testing
-
-Tests must pass before commits are allowed (enforced by pre-commit hook).
-
-```bash
-# Run all tests
-npm test
-
-# Expected output:
-# Test Suites: 1 passed
-# Tests:       5 passed
-# Time:        < 3 seconds
-```
-
 ## 📝 Git Workflow
 
 1. Make changes
 2. Stage changes: `git add .`
-3. Commit (tests run automatically): `git commit -m "feat: your message"`
-4. If tests fail, fix issues and try again
+3. Commit (TypeScript check runs automatically): `git commit -m "feat: your message"`
+4. If TypeScript errors exist, fix them and try again
 5. Push: `git push`
 
 ## 🤝 Contributing
 
 1. Follow conventional commit format: `feat:`, `fix:`, `chore:`, etc.
-2. Write tests for new features
-3. Ensure all tests pass before committing
-4. Keep coverage above 70%
+2. Ensure TypeScript compilation passes before committing
+3. Keep code type-safe
 
 ## 📄 License
 
@@ -278,9 +300,9 @@ MIT License - see the [LICENSE](LICENSE) file for details
 
 ## 🆘 Getting Help
 
-- Check `FIREBASE_SETUP.md` for Firebase issues
-- Check `memory-bank/techContext.md` for technical details
-- Review `tasks/` for feature requirements
+- Check [_docs/FIREBASE_SETUP.md](_docs/FIREBASE_SETUP.md) for Firebase issues
+- Check [memory-bank/techContext.md](memory-bank/techContext.md) for technical details
+- Review [tasks/](tasks/) for feature requirements
 
 ## 🎉 Current Status
 
