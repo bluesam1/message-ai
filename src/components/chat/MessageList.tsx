@@ -33,6 +33,15 @@ interface MessageListProps {
   userPhotoURLs?: Record<string, string>;
   /** Total number of participants (for group read receipts) */
   totalParticipants?: number;
+  /** Callback when message is long-pressed */
+  onMessageLongPress?: (message: Message) => void;
+  /** Function to get translation state for a message */
+  getTranslationState?: (messageId: string) => {
+    translatedText: string | null;
+    targetLanguage: string;
+    isLoading: boolean;
+    error: string | null;
+  } | null;
 }
 
 /**
@@ -48,6 +57,8 @@ export default function MessageList({
   userNames = {},
   userPhotoURLs = {},
   totalParticipants,
+  onMessageLongPress,
+  getTranslationState,
 }: MessageListProps) {
   const flatListRef = useRef<FlatList>(null);
 
@@ -108,6 +119,9 @@ export default function MessageList({
       ? readBy.length > 1 // Group: More than just sender
       : readBy.some(uid => uid !== currentUserId); // Direct: Other person has read
 
+    // Get translation state for this message
+    const translationState = getTranslationState?.(item.id) || null;
+
     return (
       <MessageBubble
         message={item}
@@ -119,6 +133,8 @@ export default function MessageList({
         onRetry={() => onRetryMessage?.(item)}
         isRead={isRead}
         totalParticipants={totalParticipants}
+        onLongPress={() => onMessageLongPress?.(item)}
+        translationState={translationState || undefined}
       />
     );
   };

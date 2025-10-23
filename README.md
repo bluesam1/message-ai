@@ -1,6 +1,6 @@
 # MessageAI
 
-A real-time messaging application built with React Native (Expo) and Firebase. Features include one-on-one and group messaging, offline support, read receipts, presence indicators, image sharing, and push notifications.
+A real-time messaging application built with React Native (Expo) and Firebase. Features include one-on-one and group messaging, offline support, read receipts, presence indicators, image sharing, push notifications, and **AI-powered translation, cultural context, and slang definitions**.
 
 ## 🚀 Quick Start
 
@@ -130,7 +130,7 @@ npm start
 
 ## ☁️ Cloud Functions
 
-MessageAI uses Firebase Cloud Functions for server-side operations that can't be reliably handled on the client. Two functions are deployed:
+MessageAI uses Firebase Cloud Functions for server-side operations that can't be reliably handled on the client. The following functions are deployed:
 
 ### 1. Presence Tracking (onPresenceChange)
 
@@ -144,7 +144,30 @@ MessageAI uses Firebase Cloud Functions for server-side operations that can't be
 - When RTDB detects a disconnect (via `onDisconnect()` handlers), the function updates Firestore
 - Result: UI always shows accurate presence status
 
-### 2. Push Notifications (sendPushNotification)
+### 2. AI-Powered Features (translateMessage, explainContext, defineSlang)
+
+**What they do:**
+- **translateMessage**: Translates messages to a target language using OpenAI
+- **explainContext**: Provides cultural context and explanations for messages
+- **defineSlang**: Defines slang terms and idioms in messages
+
+**How they work:**
+- Client calls Cloud Function with message text
+- Function sends request to OpenAI API (gpt-4o-mini by default)
+- Result is cached in Firestore `aiMeta` field for instant reloads
+- Rate limiting prevents abuse (10 requests/min per user)
+
+**Configuration:**
+- See [_docs/AI_SETUP.md](_docs/AI_SETUP.md) for setup instructions
+- Requires OpenAI API key in Firebase environment config
+- Model can be overridden via environment variable
+
+**User Guide:**
+- See [_docs/AI_FEATURES.md](_docs/AI_FEATURES.md) for usage instructions
+- Long-press any message to access AI features
+- Translations appear inline, explanations/definitions in modals
+
+### 3. Push Notifications (sendPushNotification)
 
 **What it does:**
 - Sends push notifications when users receive new messages
@@ -269,7 +292,9 @@ The following files contain secrets and are in `.gitignore`:
 - `expo-dev-client` - Development builds with native modules
 - `@react-native-community/netinfo` - Network status
 
-## 🎯 MVP Features (Phase 1)
+## 🎯 Features
+
+### Phase 1 (MVP) - Complete ✅
 
 - ✅ Project setup and infrastructure
 - ✅ Email/Password + Google authentication
@@ -279,6 +304,17 @@ The following files contain secrets and are in `.gitignore`:
 - ✅ Read receipts and presence (RTDB-based)
 - ✅ Image sharing
 - ✅ Foreground push notifications (Expo Push API)
+
+### Phase 2.1 (AI Foundation) - Complete ✅
+
+- ✅ **AI-Powered Translation**: Translate messages to your language (long-press message)
+- ✅ **Cultural Context**: Understand cultural nuances and idioms (long-press message)
+- ✅ **Slang Definitions**: Get explanations of unfamiliar terms (long-press message)
+- ✅ **Smart Caching**: Instant results for previously translated messages
+- ✅ **Cost Monitoring**: Track OpenAI token usage and costs
+- ✅ **Rate Limiting**: 10 requests/min per user to prevent abuse
+
+**Status:** Deployed and working! All three Cloud Functions are live. Long-press any message to access AI features.
 
 ## 📝 Git Workflow
 
@@ -298,29 +334,86 @@ The following files contain secrets and are in `.gitignore`:
 
 MIT License - see the [LICENSE](LICENSE) file for details
 
+## 🤖 AI Features Setup (Phase 2.1) - DEPLOYED ✅
+
+The AI features are now fully deployed and integrated! Long-press any message in a conversation to:
+- **Translate** to your preferred language
+- **Explain Context** for cultural understanding
+- **Define Slang** for unfamiliar terms
+
+### For New Deployments
+
+If you're deploying to a new Firebase project, you'll need to configure the OpenAI API key:
+
+1. **Get OpenAI API Key**
+   - Sign up at [platform.openai.com](https://platform.openai.com/)
+   - Create an API key
+
+2. **Configure Cloud Functions**
+   ```bash
+   cd functions
+   firebase functions:config:set openai.key="your_api_key_here"
+   firebase functions:config:set openai.model="gpt-4o-mini"  # optional, this is the default
+   ```
+
+3. **Deploy AI Functions**
+   ```bash
+   firebase deploy --only functions:translateMessage,functions:explainContext,functions:defineSlang
+   ```
+
+### Documentation
+
+- **Setup Guide**: [_docs/AI_SETUP.md](_docs/AI_SETUP.md)
+- **User Guide**: [_docs/AI_FEATURES.md](_docs/AI_FEATURES.md)
+- **Implementation Status**: [_docs/AI_IMPLEMENTATION_STATUS.md](_docs/AI_IMPLEMENTATION_STATUS.md)
+
+### Environment Variables
+
+```env
+# In functions/.env or Firebase config
+OPENAI_API_KEY=your_key_here
+OPENAI_MODEL=gpt-4o-mini  # Optional: default is gpt-4o-mini
+```
+
+### Cost Estimates (gpt-4o-mini)
+
+- **Translation**: ~$0.00001 per message
+- **Explanation**: ~$0.00002 per message
+- **Definition**: ~$0.00001 per message
+- **Caching**: Subsequent views are free
+
 ## 🆘 Getting Help
 
 - Check [_docs/FIREBASE_SETUP.md](_docs/FIREBASE_SETUP.md) for Firebase issues
+- Check [_docs/AI_SETUP.md](_docs/AI_SETUP.md) for AI features setup
 - Check [memory-bank/techContext.md](memory-bank/techContext.md) for technical details
 - Review [tasks/](tasks/) for feature requirements
 
 ## 🎉 Current Status
 
-**Phase:** PRD 08 Complete (Push Notifications)
-**Progress:** ~95% (Core messaging, offline support, groups, presence, image sharing, and push notifications complete)
-**Android:** ✅ Building and running with full functionality
-**iOS:** ✅ Working in Expo Go (foreground notifications only without APNs certificate)
+**Phase:** PRD 2.1 Complete (AI Foundation Features)
+**Phase 1:** ✅ Complete (Full MVP with messaging, groups, presence, images, notifications)
+**Phase 2:** PRD 2.1 Complete - AI-powered translation, cultural context, and slang definitions deployed
+**Android:** ✅ Building and running with full functionality + AI features
+**iOS:** ✅ Working in Expo Go
 
 ### Latest Completed Features
 
-**PRD 08: Push Notifications (Foreground)**
-- ✅ Expo Push Notifications integration
-- ✅ Cloud Function with Expo Server SDK
-- ✅ Rich notification payloads (sender name, message type, conversation context)
-- ✅ Notification collapsing and grouping by conversation
-- ✅ Deep linking to conversations on notification tap
-- ✅ Automatic invalid token cleanup
-- ✅ Authentication persistence across app restarts
+**PRD 2.1: AI Foundation Features**
+- ✅ OpenAI integration with gpt-4o-mini
+- ✅ On-demand message translation (long-press → Translate)
+- ✅ Cultural context explanations (long-press → Explain Context)
+- ✅ Slang and idiom definitions (long-press → Define Slang)
+- ✅ Firestore caching to reduce API costs
+- ✅ Rate limiting (10 requests/min per user)
+- ✅ Cost monitoring and token usage tracking
+- ✅ Three Cloud Functions deployed and tested
+- ✅ Complete UI/UX integration in chat screen
 
-Ready for production deployment!
+**Previous Phase (PRD 08): Push Notifications**
+- ✅ Expo Push Notifications with Cloud Functions
+- ✅ Deep linking and notification grouping
+- ✅ Authentication persistence
+
+Ready for PRD 2.2: Auto-Translation & Language Detection!
 

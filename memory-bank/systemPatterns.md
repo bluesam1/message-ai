@@ -648,6 +648,129 @@ service cloud.firestore {
 
 **Note:** For MVP, starting in test mode. Will implement proper rules after core features working.
 
+## AI Features Pattern (Phase 2.1)
+
+### Cloud Functions for AI
+
+**Pattern:** Server-side AI processing with client-side caching
+
+**Architecture:**
+```
+┌─────────────────────────────────────┐
+│      Client (React Native)          │
+│  - MessageBubble (long-press)       │
+│  - MessageActions menu              │
+│  - useAIFeatures hook               │
+└──────────────┬──────────────────────┘
+               │ HTTPS Request
+┌──────────────▼──────────────────────┐
+│    Client Services Layer             │
+│  - translationService.ts             │
+│  - contextService.ts                 │
+│  - definitionService.ts              │
+│  (Cache Check → Firestore)           │
+└──────────────┬──────────────────────┘
+               │ If not cached
+┌──────────────▼──────────────────────┐
+│    Cloud Functions (Node.js)         │
+│  - translateMessage                  │
+│  - explainContext                    │
+│  - defineSlang                       │
+│  (Rate Limit → OpenAI → Cache)       │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│         OpenAI API                   │
+│  - gpt-4o-mini                       │
+│  - Translation, Context, Definition  │
+└─────────────────────────────────────┘
+```
+
+**Implementation:**
+```typescript
+// 1. Client Service (with Firestore caching)
+export async function translateMessage(
+  messageId: string,
+  text: string,
+  targetLanguage: string
+): Promise<string> {
+  // Check cache first
+  const cached = await checkCache('translations', messageId, targetLanguage);
+  if (cached) return cached;
+  
+  // Call Cloud Function
+  const translateFn = httpsCallable(functions, 'translateMessage');
+  const result = await translateFn({ messageId, text, targetLanguage });
+  
+  // Cache result
+  await cacheResult('translations', messageId, targetLanguage, result.data);
+  
+  return result.data.translatedText;
+}
+
+// 2. Cloud Function (with rate limiting + cost monitoring)
+export const translateMessage = onCall(async (request) => {
+  // Authenticate
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in');
+  
+  // Rate limit (10 req/min per user)
+  await checkRateLimit(request.auth.uid, 'translate');
+  
+  // Call OpenAI
+  const { text, tokensUsed } = await callOpenAI(
+    'You are a translation assistant...',
+    `Translate to ${targetLanguage}: ${text}`
+  );
+  
+  // Log cost monitoring
+  await logTokenUsage(request.auth.uid, 'translate', tokensUsed);
+  
+  return { translatedText: text };
+});
+```
+
+**Why This Pattern:**
+- **Server-side AI**: Keeps API keys secure, enables rate limiting
+- **Firestore Caching**: Reduces latency and costs for repeated queries
+- **Rate Limiting**: Prevents abuse (10 requests/min per user)
+- **Cost Monitoring**: Tracks token usage per user in Firestore
+- **Error Handling**: User-friendly errors for quota limits, invalid requests
+
+**Key Features:**
+1. **Three AI Functions:**
+   - `translateMessage`: Translate to target language
+   - `explainContext`: Cultural context and nuances
+   - `defineSlang`: Explain slang, idioms, abbreviations
+
+2. **UI Integration:**
+   - Long-press message → MessageActions menu
+   - Inline TranslationView with show/hide toggle
+   - Modal displays for Context and Slang
+   - `useAIFeatures` hook manages all state
+
+3. **Cost Optimization:**
+   - Cache AI results in Firestore (`aiResults/{messageId}/translations/{lang}`)
+   - Default to `gpt-4o-mini` (~$0.15-0.60 per 1M tokens)
+   - Override model via `OPENAI_MODEL` environment variable
+
+4. **Firebase Configuration:**
+   ```bash
+   # Set in Cloud Functions
+   firebase functions:config:set openai.key="sk-..."
+   firebase functions:config:set openai.model="gpt-4o-mini"  # optional
+   
+   # Or in local .env
+   OPENAI_API_KEY=sk-...
+   OPENAI_MODEL=gpt-4o-mini
+   ```
+
+**Where Used:**
+- `functions/src/ai/` - Cloud Functions
+- `functions/src/utils/` - OpenAI client, rate limiter, cost monitoring
+- `src/services/ai/` - Client services
+- `src/components/chat/` - UI components
+- `src/hooks/useAIFeatures.ts` - State management
+
 ---
 
 **Key Principle:** These patterns prioritize performance and user experience while maintaining code clarity and testability.

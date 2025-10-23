@@ -27,3 +27,7 @@ pids
 # TypeScript cache
 *.tsbuildinfo
 
+# Environment variables
+.env
+.env.local
+

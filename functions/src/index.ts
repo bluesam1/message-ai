@@ -299,3 +299,11 @@ export const sendPushNotification = functions.firestore
     }
   });
 
+/**
+ * AI-Powered Features
+ * Export the AI Cloud Functions
+ */
+export { translateMessage } from './ai/translateMessage';
+export { explainContext } from './ai/explainContext';
+export { defineSlang } from './ai/defineSlang';
+

@@ -20,6 +20,24 @@ export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'failed';
 export type ConversationType = 'direct' | 'group';
 
 /**
+ * AI metadata for messages
+ * Stores AI-generated content like translations, explanations, and definitions
+ */
+export interface AIMetadata {
+  /** Detected language of the original message */
+  detectedLang?: string;
+  
+  /** Translations keyed by language code (e.g., { en: "Hello", es: "Hola" }) */
+  translatedText?: { [lang: string]: string };
+  
+  /** Cultural context explanation */
+  explanation?: string;
+  
+  /** Slang or idiom definition */
+  slangDefinition?: string;
+}
+
+/**
  * Message interface
  * Represents a single message in a conversation
  * Stored in both Firestore (messages collection) and SQLite (messages table)
@@ -51,6 +69,9 @@ export interface Message {
   
   /** Message creation timestamp (milliseconds since epoch) */
   createdAt: number;
+  
+  /** AI-generated metadata (translations, explanations, definitions) */
+  aiMeta?: AIMetadata;
 }
 
 /**

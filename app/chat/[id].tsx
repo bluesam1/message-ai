@@ -16,6 +16,10 @@ import OfflineBanner from '../../src/components/chat/OfflineBanner';
 import GroupInfo from '../../src/components/chat/GroupInfo';
 import PresenceIndicator from '../../src/components/users/PresenceIndicator';
 import { initDatabase } from '../../src/services/sqlite/sqliteService';
+import { useAIFeatures } from '../../src/hooks/useAIFeatures';
+import { MessageActions } from '../../src/components/chat/MessageActions';
+import { ContextExplanation } from '../../src/components/chat/ContextExplanation';
+import { SlangDefinition } from '../../src/components/chat/SlangDefinition';
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -41,6 +45,24 @@ export default function ChatScreen() {
     retryMessage,
     loadMore,
   } = useMessages(id || '', user?.uid || '');
+
+  // AI Features
+  const {
+    selectedMessage,
+    showActions,
+    showContextExplanation,
+    showSlangDefinition,
+    contextExplanation,
+    slangDefinition,
+    handleMessageLongPress,
+    closeActions,
+    handleTranslate,
+    handleExplainContext,
+    handleDefineSlang,
+    closeContextExplanation,
+    closeSlangDefinition,
+    getTranslationState,
+  } = useAIFeatures();
 
   // Handle send message
   const handleSendMessage = async (text: string) => {
@@ -134,6 +156,8 @@ export default function ChatScreen() {
             Object.entries(participants).map(([uid, user]) => [uid, user.photoURL || ''])
           )}
           totalParticipants={conversation?.participants.length}
+          onMessageLongPress={handleMessageLongPress}
+          getTranslationState={getTranslationState}
         />
 
         {/* Message Input */}
@@ -151,6 +175,50 @@ export default function ChatScreen() {
           visible={showGroupInfo}
           onClose={() => setShowGroupInfo(false)}
         />
+      )}
+
+      {/* AI Features Modals */}
+      {selectedMessage && (
+        <>
+          <MessageActions
+            visible={showActions}
+            onClose={closeActions}
+            message={selectedMessage}
+            actions={[
+              {
+                id: 'translate',
+                label: '🌐 Translate to English',
+                onPress: () => handleTranslate(selectedMessage, 'en'),
+              },
+              {
+                id: 'explain',
+                label: '💡 Explain Cultural Context',
+                onPress: () => handleExplainContext(selectedMessage),
+              },
+              {
+                id: 'define',
+                label: '📖 Define Slang/Idiom',
+                onPress: () => handleDefineSlang(selectedMessage),
+              },
+            ]}
+          />
+          <ContextExplanation
+            visible={showContextExplanation}
+            onClose={closeContextExplanation}
+            explanation={contextExplanation.text}
+            isLoading={contextExplanation.isLoading}
+            error={contextExplanation.error}
+            messageText={selectedMessage.text}
+          />
+          <SlangDefinition
+            visible={showSlangDefinition}
+            onClose={closeSlangDefinition}
+            definition={slangDefinition.text}
+            isLoading={slangDefinition.isLoading}
+            error={slangDefinition.error}
+            messageText={selectedMessage.text}
+          />
+        </>
       )}
     </>
   );

@@ -94,6 +94,14 @@
  *   status: "pending" | "sent" | "delivered" | "failed"  // Message delivery status
  *   readBy: string[]                     // Array of user IDs who have read this message
  *   createdAt: timestamp                 // Firestore timestamp when message document was created
+ *   aiMeta: {                            // AI-generated metadata (optional, added in PRD 2.1)
+ *     detectedLang?: string,             // Detected language of the message
+ *     translatedText?: {                 // Translations keyed by language code
+ *       [lang: string]: string           // e.g., { "en": "Hello", "es": "Hola" }
+ *     },
+ *     explanation?: string,              // Cultural context explanation
+ *     slangDefinition?: string           // Slang/idiom definition
+ *   }
  * }
  * 
  * Indexes:
@@ -105,7 +113,7 @@
  * - Users can create messages if they are the sender and a participant in the conversation
  * - Users can update messages to mark them as read (add their ID to readBy array)
  * 
- * Example Document:
+ * Example Document (without AI metadata):
  * {
  *   id: "msg_1698765432101_k3m9n2p",
  *   conversationId: "conv_1698765432101_a5b2c",
@@ -116,6 +124,68 @@
  *   status: "sent",
  *   readBy: ["user123"],
  *   createdAt: Timestamp(1698765432101)
+ * }
+ * 
+ * Example Document (with AI metadata):
+ * {
+ *   id: "msg_1698765432102_x4y5z",
+ *   conversationId: "conv_1698765432101_a5b2c",
+ *   senderId: "user456",
+ *   text: "Estoy bien, gracias!",
+ *   imageUrl: null,
+ *   timestamp: Timestamp(1698765432102),
+ *   status: "sent",
+ *   readBy: ["user123", "user456"],
+ *   createdAt: Timestamp(1698765432102),
+ *   aiMeta: {
+ *     detectedLang: "es",
+ *     translatedText: {
+ *       "en": "I'm good, thanks!"
+ *     },
+ *     explanation: "Common Spanish greeting response, informal and friendly.",
+ *     slangDefinition: null
+ *   }
+ * }
+ */
+
+/**
+ * COLLECTION: aiUsage
+ * ===================
+ * 
+ * Path: /aiUsage/{usageId}
+ * 
+ * Purpose: Tracks AI feature usage for monitoring and cost analysis (added in PRD 2.1)
+ * 
+ * Schema:
+ * {
+ *   userId: string                     // User ID who made the request
+ *   featureType: "translate" | "explain" | "define"  // Type of AI feature used
+ *   inputTokens: number                // Number of input tokens used
+ *   outputTokens: number               // Number of output tokens used
+ *   totalTokens: number                // Total tokens (input + output)
+ *   model: string                      // Model used (e.g., "gpt-4o-mini")
+ *   cost: number                       // Cost in USD
+ *   timestamp: timestamp               // When the request was made
+ * }
+ * 
+ * Indexes:
+ * - userId + timestamp (desc) - For querying a user's usage history
+ * - timestamp (desc) - For overall usage analytics
+ * 
+ * Security Rules:
+ * - Only Cloud Functions can write to this collection
+ * - Users can read their own usage documents
+ * 
+ * Example Document:
+ * {
+ *   userId: "user123",
+ *   featureType: "translate",
+ *   inputTokens: 25,
+ *   outputTokens: 18,
+ *   totalTokens: 43,
+ *   model: "gpt-4o-mini",
+ *   cost: 0.0000065,
+ *   timestamp: Timestamp(1698765432103)
  * }
  */
 

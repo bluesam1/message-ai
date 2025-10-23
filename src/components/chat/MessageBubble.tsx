@@ -4,11 +4,12 @@
  * Displays message content, timestamp, status indicators, and user avatar
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Message } from '../../types/message';
 import { getRelativeTime } from '../../utils/messageUtils';
+import { TranslationView } from './TranslationView';
 
 interface MessageBubbleProps {
   /** Message object to display */
@@ -29,6 +30,15 @@ interface MessageBubbleProps {
   isRead?: boolean;
   /** Total number of participants (for group read receipts) */
   totalParticipants?: number;
+  /** Callback when message is long-pressed */
+  onLongPress?: () => void;
+  /** Translation state for this message */
+  translationState?: {
+    translatedText: string | null;
+    targetLanguage: string;
+    isLoading: boolean;
+    error: string | null;
+  };
 }
 
 /**
@@ -46,6 +56,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
     onRetry,
     isRead = false,
     totalParticipants,
+    onLongPress,
+    translationState,
   }) => {
     /**
      * Render message status indicator with read receipts
@@ -155,40 +167,55 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
         {/* Spacer for grouped messages */}
         {!isOwnMessage && isGrouped && <View style={styles.avatarSpacer} />}
 
-        {/* Message Bubble */}
-        <View
-          style={[
-            styles.bubble,
-            isOwnMessage ? styles.ownBubble : styles.otherBubble,
-          ]}
-        >
-          {/* Message Text */}
-          <Text
+        {/* Message Bubble Container */}
+        <View style={styles.bubbleWrapper}>
+          {/* Message Bubble */}
+          <Pressable
+            onLongPress={onLongPress}
             style={[
-              styles.messageText,
-              isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+              styles.bubble,
+              isOwnMessage ? styles.ownBubble : styles.otherBubble,
             ]}
           >
-            {message.text}
-          </Text>
+            {/* Message Text */}
+            <Text
+              style={[
+                styles.messageText,
+                isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+              ]}
+            >
+              {message.text}
+            </Text>
 
-          {/* Timestamp and Status */}
-          <View style={styles.metaContainer}>
-            {showTimestamp && (
-              <Text
-                style={[
-                  styles.timestamp,
-                  isOwnMessage ? styles.ownTimestamp : styles.otherTimestamp,
-                ]}
-              >
-                {getRelativeTime(message.timestamp)}
-              </Text>
-            )}
-            {renderStatusIndicator()}
-          </View>
+            {/* Timestamp and Status */}
+            <View style={styles.metaContainer}>
+              {showTimestamp && (
+                <Text
+                  style={[
+                    styles.timestamp,
+                    isOwnMessage ? styles.ownTimestamp : styles.otherTimestamp,
+                  ]}
+                >
+                  {getRelativeTime(message.timestamp)}
+                </Text>
+              )}
+              {renderStatusIndicator()}
+            </View>
 
-          {/* Group Read Receipt */}
-          {renderGroupReadReceipt()}
+            {/* Group Read Receipt */}
+            {renderGroupReadReceipt()}
+          </Pressable>
+
+          {/* Translation View */}
+          {translationState && (
+            <TranslationView
+              originalText={message.text}
+              translatedText={translationState.translatedText}
+              isLoading={translationState.isLoading}
+              error={translationState.error}
+              targetLanguage={translationState.targetLanguage}
+            />
+          )}
         </View>
       </View>
     );
@@ -220,6 +247,9 @@ const styles = StyleSheet.create({
   avatarSpacer: {
     width: 40,
   },
+  bubbleWrapper: {
+    maxWidth: '70%',
+  },
   avatar: {
     width: 32,
     height: 32,
@@ -236,7 +266,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bubble: {
-    maxWidth: '70%',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 18,
