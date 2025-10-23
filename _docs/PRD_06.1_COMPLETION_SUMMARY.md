@@ -81,11 +81,11 @@ Successfully implemented a **rock-solid presence system** using Firebase Realtim
 - `functions/README.md` - Function documentation
 
 ### Documentation
-- `CLOUD_FUNCTIONS_SETUP.md` - Deployment guide
-- `EMULATOR_TESTING.md` - How to test with emulators
-- `RTDB_INSTANCE_FIX.md` - Instance name requirement explanation
-- `LOGOUT_PRESENCE_FIX.md` - Logout flow and race condition fixes
-- `PRD_06.1_COMPLETION_SUMMARY.md` - This file
+- `CLOUD_FUNCTIONS_SETUP.md` - Deployment guide (in _docs/)
+- `EMULATOR_TESTING.md` - How to test with emulators (in _docs/)
+- `RTDB_INSTANCE_FIX.md` - Instance name requirement explanation (in _docs/)
+- `LOGOUT_PRESENCE_FIX.md` - Logout flow and race condition fixes (in _docs/)
+- `PRD_06.1_COMPLETION_SUMMARY.md` - This file (in _docs/)
 
 ### Configuration
 - `firebase.json` - Added RTDB rules, functions config, emulator settings
@@ -335,11 +335,11 @@ FILES CREATED:
 - functions/src/index.ts - Cloud Function for presence mirroring
 - functions/package.json, tsconfig.json, .gitignore, README.md
 - database.rules.json - RTDB security rules
-- CLOUD_FUNCTIONS_SETUP.md - Deployment guide
-- EMULATOR_TESTING.md - Local testing guide
-- RTDB_INSTANCE_FIX.md - Instance name requirement
-- LOGOUT_PRESENCE_FIX.md - Logout flow documentation
-- PRD_06.1_COMPLETION_SUMMARY.md - Complete summary
+- CLOUD_FUNCTIONS_SETUP.md - Deployment guide (in _docs/)
+- EMULATOR_TESTING.md - Local testing guide (in _docs/)
+- RTDB_INSTANCE_FIX.md - Instance name requirement (in _docs/)
+- LOGOUT_PRESENCE_FIX.md - Logout flow documentation (in _docs/)
+- PRD_06.1_COMPLETION_SUMMARY.md - Complete summary (in _docs/)
 
 FILES MODIFIED:
 - src/services/user/rtdbPresenceService.ts - Added setOffline(), removed client-side Firestore mirroring

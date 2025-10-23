@@ -388,11 +388,11 @@ After initial testing revealed that client-side mirroring was insufficient for d
 - Without this, function listens to default instance and never triggers
 
 **Documentation Created:**
-- `CLOUD_FUNCTIONS_SETUP.md` - Deployment instructions
-- `EMULATOR_TESTING.md` - Local testing guide
-- `RTDB_INSTANCE_FIX.md` - Instance name requirement explanation
-- `LOGOUT_PRESENCE_FIX.md` - Race condition details
-- `PRD_06.1_COMPLETION_SUMMARY.md` - Final summary
+- `_docs/CLOUD_FUNCTIONS_SETUP.md` - Deployment instructions
+- `_docs/EMULATOR_TESTING.md` - Local testing guide
+- `_docs/RTDB_INSTANCE_FIX.md` - Instance name requirement explanation
+- `_docs/LOGOUT_PRESENCE_FIX.md` - Race condition details
+- `_docs/PRD_06.1_COMPLETION_SUMMARY.md` - Final summary
 
 #### Final File Structure
 

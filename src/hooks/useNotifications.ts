@@ -24,8 +24,8 @@ export interface UseNotificationsReturn {
  */
 export const useNotifications = ({ activeConversationId }: UseNotificationsProps = {}): UseNotificationsReturn => {
   const router = useRouter();
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
+  const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
 
   useEffect(() => {
     // Configure notification handler for foreground display
@@ -34,6 +34,8 @@ export const useNotifications = ({ activeConversationId }: UseNotificationsProps
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
       }),
     });
 

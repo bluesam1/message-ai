@@ -11,7 +11,7 @@
 - `.env` - Firebase credentials and environment variables (gitignored) ✅ CREATED
 - `.env.template` - Template showing required environment variables ✅ CREATED
 - `src/config/firebase.ts` - Firebase SDK initialization ✅ CREATED
-- `FIREBASE_SETUP.md` - Step-by-step Firebase setup guide ✅ CREATED
+- `_docs/FIREBASE_SETUP.md` - Step-by-step Firebase setup guide ✅ CREATED
 - `jest.config.js` - Jest testing configuration
 - `__tests__/sample.test.ts` - Sample test to verify Jest setup
 - `.husky/pre-commit` - Pre-commit hook script

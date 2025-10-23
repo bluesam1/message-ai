@@ -15,7 +15,7 @@ export interface User {
   online: boolean;
   lastSeen: number;
   createdAt: number;
-  expoPushTokens: string[];
+  expoPushTokens?: string[]; // Optional - only needed for push notifications
 }
 
 /**
@@ -29,7 +29,7 @@ export interface UserProfile {
   online: boolean;
   lastSeen: Timestamp;
   createdAt: Timestamp;
-  expoPushTokens: string[];
+  expoPushTokens?: string[]; // Optional - only needed for push notifications
 }
 
 /**

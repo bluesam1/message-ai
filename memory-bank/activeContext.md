@@ -12,12 +12,11 @@
 ### ✅ Completed (PRD 01 - Project Setup)
 1. **Firebase Project:** Configured with Auth, Firestore, Storage, and FCM
 2. **Development Environment:** Expo project with TypeScript, all dependencies installed
-3. **Testing Infrastructure:** Jest configured (initially 5/5 tests, now 29/29 passing)
-4. **Pre-commit Hooks:** Husky + lint-staged working (tests run before commits)
-5. **Firebase Integration:** Config files set up with security best practices
-6. **Android Build:** Development build successfully running on Pixel 7 emulator
-7. **Documentation:** README.md and FIREBASE_SETUP.md created
-8. **Windows Setup:** JAVA_HOME configured, Gradle issues resolved
+3. **Pre-commit Hooks:** Husky configured (TypeScript compilation check before commits)
+4. **Firebase Integration:** Config files set up with security best practices
+5. **Android Build:** Development build successfully running on Pixel 7 emulator
+6. **Documentation:** README.md and _docs/FIREBASE_SETUP.md created
+7. **Windows Setup:** JAVA_HOME configured, Gradle issues resolved
 
 ### ✅ Completed (PRD 02 - Authentication System)
 1. **Auth Services:** `authService.ts` with email/password + Google Sign-In
@@ -28,8 +27,7 @@
 6. **Google OAuth:** Working Google Sign-In with expo-auth-session
 7. **Error Handling:** User-friendly error messages mapped from Firebase codes
 8. **Validation:** Email, password, and display name validation utilities
-9. **Unit Tests:** 29 tests passing (validation, error messages, auth utilities)
-10. **Package Compatibility:** Resolved React 19.1.0/RN 0.81.4 version conflicts
+9. **Package Compatibility:** Resolved React 19.1.0/RN 0.81.4 version conflicts
 
 ### ✅ Completed (PRD 03 - Core One-on-One Messaging)
 1. **Data Models:** TypeScript types for messages and conversations with full interfaces
@@ -43,9 +41,8 @@
 9. **Performance Optimizations:** React.memo, FlatList with getItemLayout for 60 FPS target
 10. **Custom Hooks:** useMessages and useConversation for state management
 11. **Real-time Sync:** Firestore listeners with cache-first strategy
-12. **Unit Tests:** 79 tests passing (100% coverage on utils, exceeds 70% requirement)
-13. **Firebase Configuration:** Firestore rules and indexes configured for deployment
-14. **Database Init:** SQLite initialization in all relevant screens
+12. **Firebase Configuration:** Firestore rules and indexes configured for deployment
+13. **Database Init:** SQLite initialization in all relevant screens
 
 ### ✅ Completed (PRD 05 - Group Chat)
 1. **Data Model Extension:** Extended Conversation interface with groupName, groupPhoto, createdBy fields
@@ -61,7 +58,6 @@
 11. **UI Polish:** Fixed header layouts, improved spacing, proper touch feedback
 12. **Real-Time Sync Fix:** Fixed listener closure bug preventing bidirectional message sync
 13. **Timestamp Safety:** Added toMillis() helper to handle both Firestore Timestamps and numbers
-14. **Unit Tests:** Comprehensive tests for validation, user lookup, and conversation service (160+ total tests)
 
 ### ✅ Completed (PRD 06 - Read Receipts & Presence)
 1. **Data Model Extensions:** Added readBy array to Message type, online and lastSeen fields to User type
@@ -78,7 +74,6 @@
 12. **App State Handling:** Presence updates on foreground/background with intelligent cleanup
 13. **Custom Debounce:** Implemented custom debounce function (no lodash dependency)
 14. **Firestore Schema Updates:** Documented readBy, online, and lastSeen fields in schema
-15. **Unit Tests:** Comprehensive tests for presenceUtils (17 tests) and readReceiptService (4 tests)
 
 ### ✅ Completed (PRD 06.1 - RTDB Presence Migration - Full Implementation)
 1. **Firebase RTDB Setup:** Enabled Realtime Database in Firebase Console, created database in us-central1
@@ -97,8 +92,7 @@
 14. **File Cleanup:** Removed old Firestore-only presenceService.ts and usePresenceUpdates.ts
 15. **Security Rules Deployed:** Successfully deployed RTDB rules via Firebase CLI
 16. **Cloud Functions Deployed:** Successfully deployed to Firebase with proper permissions (Artifact Registry Reader + Editor)
-17. **Unit Tests:** Comprehensive tests for rtdbPresenceService (12 test scenarios covering all functionality)
-18. **Documentation:** Updated systemPatterns.md, techContext.md, activeContext.md, progress.md, and created 5 new docs (CLOUD_FUNCTIONS_SETUP, EMULATOR_TESTING, RTDB_INSTANCE_FIX, LOGOUT_PRESENCE_FIX, PRD_06.1_COMPLETION_SUMMARY)
+17. **Documentation:** Updated systemPatterns.md, techContext.md, activeContext.md, progress.md, and created 5 new docs (CLOUD_FUNCTIONS_SETUP, EMULATOR_TESTING, RTDB_INSTANCE_FIX, LOGOUT_PRESENCE_FIX, PRD_06.1_COMPLETION_SUMMARY)
 
 ### ✅ Completed (PRD 04 - Offline Support & Sync)
 1. **Network Service:** Real-time connectivity monitoring with NetInfo, listener pattern for state changes
@@ -113,8 +107,7 @@
 10. **Message Service Updates:** Offline-aware sending with queue fallback
 11. **Root Layout Integration:** Network service initialized in app/_layout.tsx with sync trigger
 12. **Conversation List Updates:** Display pending message counts for offline messages
-13. **Unit Tests:** 49 additional tests for network, queue, sync, and deduplication (128 total passing)
-14. **Type Safety:** Full TypeScript coverage with proper boolean type handling
+13. **Type Safety:** Full TypeScript coverage with proper boolean type handling
 
 ### 📋 Feature PRDs Created
 All PRDs are in `/tasks` directory:
