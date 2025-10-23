@@ -5,10 +5,46 @@
  */
 
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useAuth } from '../../src/store/AuthContext';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+
+  const handleTestNotification = async () => {
+    try {
+      console.log('[ProfileScreen] Sending test notification...');
+      
+      // Check permissions
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permissions Required', 'Please grant notification permissions first');
+        return;
+      }
+
+      // Send a local notification immediately
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Test Message 📱',
+          body: 'This is a test foreground notification',
+          data: {
+            conversationId: 'test-conversation-123',
+            messageId: 'test-message-456',
+            senderName: 'Test User',
+            messageType: 'text',
+            type: 'new_message',
+          },
+        },
+        trigger: null, // null = immediately
+      });
+
+      console.log('[ProfileScreen] Test notification sent!');
+      Alert.alert('Success', 'Test notification sent! Check if it appears.');
+    } catch (error) {
+      console.error('[ProfileScreen] Failed to send test notification:', error);
+      Alert.alert('Error', 'Failed to send test notification');
+    }
+  };
 
   const handleSignOut = async () => {
     console.log('[ProfileScreen] handleSignOut called');
@@ -53,13 +89,16 @@ export default function ProfileScreen() {
         <Text style={styles.email}>{user?.email || 'No email'}</Text>
       </View>
 
+      <TouchableOpacity style={styles.testButton} onPress={handleTestNotification}>
+        <Text style={styles.testButtonText}>Test Notification 🔔</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Text style={styles.signOutButtonText}>Sign Out</Text>
       </TouchableOpacity>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -94,6 +133,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+  testButton: {
+    height: 50,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  testButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   signOutButton: {
     height: 50,
     backgroundColor: '#FF3B30',
@@ -108,5 +160,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
 
 

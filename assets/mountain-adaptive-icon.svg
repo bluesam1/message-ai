@@ -1,0 +1,20 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with mountain gradient -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50"/>
+      <stop offset="100%" style="stop-color:#2E7D32"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="512" cy="512" r="512" fill="url(#bg)"/>
+  
+  <!-- Mountain silhouette -->
+  <path d="M100 800L300 400L500 600L700 200L900 400L924 800H100Z" fill="white" opacity="0.9"/>
+  
+  <!-- Message icon overlay -->
+  <circle cx="750" cy="250" r="60" fill="white"/>
+  <circle cx="750" cy="250" r="40" fill="#4CAF50"/>
+  <path d="M750 230C755.5 230 760 234.5 760 240C760 245.5 755.5 250 750 250C744.5 250 740 245.5 740 240C740 234.5 744.5 230 750 230Z" fill="white"/>
+</svg>

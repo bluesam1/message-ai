@@ -1,0 +1,31 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with mountain gradient -->
+  <defs>
+    <linearGradient id="mountainBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50"/>
+      <stop offset="50%" style="stop-color:#66BB6A"/>
+      <stop offset="100%" style="stop-color:#2E7D32"/>
+    </linearGradient>
+    <linearGradient id="mountainShadow" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1B5E20;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#4CAF50;stop-opacity:0.3"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="512" cy="512" r="512" fill="url(#mountainBg)"/>
+  
+  <!-- Main mountain range -->
+  <path d="M150 800L300 500L500 700L700 300L850 500L950 400L924 800H150Z" fill="url(#mountainShadow)"/>
+  
+  <!-- Secondary mountain peaks -->
+  <path d="M200 750L400 550L600 750L800 350L900 550L924 800H200Z" fill="#1B5E20" opacity="0.6"/>
+  
+  <!-- Message bubble in top right -->
+  <circle cx="800" cy="200" r="80" fill="white"/>
+  <circle cx="800" cy="200" r="60" fill="#4CAF50"/>
+  <path d="M800 180C805.5 180 810 184.5 810 190C810 195.5 805.5 200 800 200C794.5 200 790 195.5 790 190C790 184.5 794.5 180 800 180Z" fill="white"/>
+  
+  <!-- Small accent mountains -->
+  <path d="M250 750L450 650L650 750L850 450L900 550L924 800H250Z" fill="#2E7D32" opacity="0.4"/>
+</svg>

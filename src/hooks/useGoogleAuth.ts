@@ -18,8 +18,8 @@ export const useGoogleAuth = () => {
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '1006898666705-akm2l7gvjkcs0mp0if4ahjfsvol1js71.apps.googleusercontent.com',
     // Android client ID is required for React Native
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '1006898666705-akm2l7gvjkcs0mp0if4ahjfsvol1js71.apps.googleusercontent.com',
-    // Optional: Add iOS client ID for iOS
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    // iOS client ID (using web client ID as fallback for now)
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '1006898666705-akm2l7gvjkcs0mp0if4ahjfsvol1js71.apps.googleusercontent.com',
   });
 
   useEffect(() => {
