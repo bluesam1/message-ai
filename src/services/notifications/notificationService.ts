@@ -98,7 +98,6 @@ class NotificationServiceImpl implements NotificationService {
       sound: 'default',
       enableLights: true,
       enableVibrate: true,
-      enableBadge: true,
     });
   }
 
