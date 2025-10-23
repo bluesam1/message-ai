@@ -8,6 +8,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { authService } from '../services/firebase/authService';
 import { AuthContextType, AuthUser } from '../types/auth';
 import { rtdbPresenceService } from '../services/user/rtdbPresenceService';
+import { notificationService } from '../services/notifications/notificationService';
+import { authPersistenceService } from '../services/auth/authPersistenceService';
 
 // Create the context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,22 +42,89 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Listen to Firebase auth state changes
+  // Initialize authentication state with persistence
   useEffect(() => {
-    const unsubscribe = authService.onAuthStateChanged((authUser) => {
+    console.log('[AuthContext] Initializing authentication state');
+    
+    const initializeAuth = async () => {
+      try {
+        // First, check if Firebase Auth has a current user
+        const currentUser = authService.getCurrentUser();
+        
+        if (currentUser) {
+          console.log('[AuthContext] Firebase Auth has current user:', currentUser.uid);
+          setUser(currentUser);
+          setLoading(false);
+          // Store the user data for persistence
+          await authPersistenceService.storeAuthData(currentUser);
+        } else {
+          // Firebase doesn't have a user, check AsyncStorage
+          console.log('[AuthContext] No Firebase user, checking stored auth data');
+          const storedUser = await authPersistenceService.validateStoredAuth();
+          
+          if (storedUser) {
+            console.log('[AuthContext] Found valid stored user:', storedUser.uid);
+            setUser(storedUser);
+          } else {
+            console.log('[AuthContext] No valid stored user found');
+            setUser(null);
+          }
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('[AuthContext] Error initializing auth:', error);
+        setUser(null);
+        setLoading(false);
+      }
+    };
+    
+    initializeAuth();
+    
+    // Set up Firebase auth state listener
+    const unsubscribe = authService.onAuthStateChanged(async (authUser) => {
+      console.log('[AuthContext] Firebase auth state changed:', authUser ? `User ${authUser.uid}` : 'No user');
+      
+      if (authUser) {
+        // User is authenticated, store in AsyncStorage
+        await authPersistenceService.storeAuthData(authUser);
+      } else {
+        // User is not authenticated, clear stored data
+        await authPersistenceService.clearAuthData();
+      }
+      
       setUser(authUser);
       setLoading(false);
     });
 
     // Cleanup subscription
-    return unsubscribe;
+    return () => {
+      console.log('[AuthContext] Cleaning up auth state listener');
+      unsubscribe();
+    };
   }, []);
 
-  // Initialize RTDB presence when user is authenticated
+  // Initialize RTDB presence and notifications when user is authenticated
   useEffect(() => {
+    console.log('[AuthContext] useEffect triggered, user?.uid:', user?.uid);
     if (user?.uid) {
       console.log('[AuthContext] Initializing RTDB presence for user:', user.uid);
       rtdbPresenceService.initialize(user.uid);
+      
+      console.log('[AuthContext] ⚠️ STARTING NOTIFICATION INITIALIZATION for user:', user.uid);
+      notificationService.initialize().then(async () => {
+        console.log('[AuthContext] ✅ Notification service initialized successfully');
+        const token = await notificationService.getToken();
+        console.log('[AuthContext] Token retrieved:', token ? 'SUCCESS' : 'FAILED');
+        if (token) {
+          console.log('[AuthContext] Saving token to Firestore...');
+          await notificationService.saveExpoPushToken(token, user.uid);
+          console.log('[AuthContext] ✅ Token saved to Firestore');
+        } else {
+          console.warn('[AuthContext] ⚠️ No token retrieved, cannot save to Firestore');
+        }
+      }).catch((error) => {
+        console.error('[AuthContext] ❌ Failed to initialize notifications:', error);
+      });
     }
   }, [user?.uid]);
 
@@ -64,7 +133,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      await authService.loginWithEmail(email, password);
+      const user = await authService.loginWithEmail(email, password);
+      // Store authentication data for persistence
+      await authPersistenceService.storeAuthData(user);
       // User state will be updated by onAuthStateChanged listener
     } catch (err: any) {
       setError(err.message);
@@ -78,7 +149,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      await authService.registerWithEmail(email, password, displayName);
+      const user = await authService.registerWithEmail(email, password, displayName);
+      // Store authentication data for persistence
+      await authPersistenceService.storeAuthData(user);
       // User state will be updated by onAuthStateChanged listener
     } catch (err: any) {
       setError(err.message);
@@ -110,19 +183,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // CRITICAL: Order matters to prevent race condition!
         
-        // 1. FIRST: Stop listening to connection changes
+        // 1. FIRST: Remove Expo push token before signing out
+        console.log('[AuthContext] Step 1: Removing Expo push token');
+        try {
+          const token = await notificationService.getToken();
+          if (token) {
+            await notificationService.removeExpoPushToken(token, user.uid);
+          }
+        } catch (error) {
+          console.error('[AuthContext] Failed to remove Expo push token during sign out:', error);
+          // Don't block sign out if token removal fails
+        }
+        
+        // 2. SECOND: Stop listening to connection changes
         //    This prevents the connection listener from overwriting our offline status
-        console.log('[AuthContext] Step 1: Cleaning up listeners');
+        console.log('[AuthContext] Step 2: Cleaning up listeners');
         rtdbPresenceService.cleanup();
         
-        // 2. SECOND: Explicitly set user offline in RTDB (triggers Cloud Function)
+        // 3. THIRD: Explicitly set user offline in RTDB (triggers Cloud Function)
         //    Now safe to write offline - no listener will overwrite it
-        console.log('[AuthContext] Step 2: Setting user offline in RTDB');
+        console.log('[AuthContext] Step 3: Setting user offline in RTDB');
         await rtdbPresenceService.setOffline(user.uid);
-        console.log('[AuthContext] Step 2 complete: User offline status written');
+        console.log('[AuthContext] Step 3 complete: User offline status written');
         
-        // 3. THIRD: Sign out from Firebase Auth
-        console.log('[AuthContext] Step 3: Signing out from Firebase Auth');
+        // 4. FOURTH: Clear stored authentication data
+        console.log('[AuthContext] Step 4: Clearing stored auth data');
+        await authPersistenceService.clearAuthData();
+        
+        // 5. FIFTH: Sign out from Firebase Auth
+        console.log('[AuthContext] Step 5: Signing out from Firebase Auth');
         await authService.signOut(user.uid);
         console.log('[AuthContext] Logout sequence complete');
       } else {
@@ -136,6 +225,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const refreshAuth = async (): Promise<void> => {
+    try {
+      console.log('[AuthContext] Refreshing authentication state');
+      
+      // Try to refresh from Firebase first
+      const currentUser = authService.getCurrentUser();
+      
+      if (currentUser) {
+        console.log('[AuthContext] Firebase user found on refresh:', currentUser.uid);
+        setUser(currentUser);
+        // Update stored data
+        await authPersistenceService.storeAuthData(currentUser);
+      } else {
+        // No Firebase user, try to refresh from stored data
+        console.log('[AuthContext] No Firebase user, checking stored data');
+        const refreshedUser = await authPersistenceService.refreshStoredAuth();
+        
+        if (refreshedUser) {
+          console.log('[AuthContext] Stored user refreshed:', refreshedUser.uid);
+          setUser(refreshedUser);
+        } else {
+          console.log('[AuthContext] No valid stored user found');
+          setUser(null);
+        }
+      }
+    } catch (err: any) {
+      console.error('[AuthContext] Error refreshing auth:', err);
+      setError(err.message);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     loading,
@@ -143,6 +263,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signUp,
     signInWithGoogle,
     signOut,
+    refreshAuth,
     error,
   };
 

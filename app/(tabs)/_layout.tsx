@@ -5,49 +5,14 @@
  */
 
 import { Tabs } from 'expo-router';
-import { TouchableOpacity, Text, Alert } from 'react-native';
-import { useAuth } from '../../src/store/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabsLayout() {
-  const { user, signOut } = useAuth();
-
-  const handleLogout = () => {
-    console.log('[TabsLayout] handleLogout called from header button');
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { 
-          text: 'Cancel', 
-          style: 'cancel',
-          onPress: () => console.log('[TabsLayout] User cancelled logout')
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            console.log('[TabsLayout] User confirmed logout, calling signOut()...');
-            try {
-              await signOut();
-              console.log('[TabsLayout] signOut() completed successfully');
-            } catch (error) {
-              console.error('[TabsLayout] Error signing out:', error);
-              Alert.alert('Error', 'Failed to logout. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <Tabs
       screenOptions={{
+        tabBarActiveTintColor: '#007AFF',
         headerShown: true,
-        // Hide the tab bar completely to prevent animation crashes
-        tabBarStyle: {
-          display: 'none',
-        },
       }}
     >
       <Tabs.Screen
@@ -55,13 +20,8 @@ export default function TabsLayout() {
         options={{
           title: 'Conversations',
           tabBarLabel: 'Chats',
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={handleLogout}
-              style={{ marginRight: 16 }}
-            >
-              <Text style={{ fontSize: 16, color: '#007AFF' }}>Logout</Text>
-            </TouchableOpacity>
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles" size={size} color={color} />
           ),
         }}
       />
@@ -70,10 +30,11 @@ export default function TabsLayout() {
         options={{
           title: 'Profile',
           tabBarLabel: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>
   );
 }
-
-

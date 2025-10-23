@@ -3,10 +3,15 @@
     "name": "message-ai1",
     "slug": "message-ai1",
     "version": "1.0.0",
+    "owner": "anonymous",
+    "extra": {
+      "eas": {
+        "projectId": "1cd48f5c-5a77-4f9c-a683-4f77e118780c"
+      }
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "scheme": "com.bluesam.messagai",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -16,7 +21,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bluesam.messagai",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "iosDisplayInForeground": true,
+      "supportsTabletMultitasking": true
     },
     "android": {
       "package": "com.bluesam.messagai",
@@ -26,7 +33,24 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
-    }
+      "predictiveBackGestureEnabled": false,
+      "useNextNotificationsApi": true
+    },
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#ffffff",
+      "androidMode": "default"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff"
+        }
+      ],
+      "expo-sqlite",
+      "expo-secure-store"
+    ]
   }
 }

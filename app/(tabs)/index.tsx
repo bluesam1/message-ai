@@ -217,7 +217,6 @@ export default function ConversationsScreen() {
         </View>
       );
     }
-
     if (error) {
       return (
         <View style={styles.emptyState}>
@@ -417,3 +416,4 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
 });
+

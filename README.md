@@ -1,6 +1,6 @@
 # MessageAI
 
-A real-time messaging application built with React Native (Expo) and Firebase. Features include one-on-one and group messaging, offline support, read receipts, presence indicators, and image sharing.
+A real-time messaging application built with React Native (Expo) and Firebase. Features include one-on-one and group messaging, offline support, read receipts, presence indicators, image sharing, and push notifications.
 
 ## 🚀 Quick Start
 
@@ -240,8 +240,8 @@ The following files contain secrets and are in `.gitignore`:
 - ✅ Offline support with sync
 - ✅ Group chat
 - ✅ Read receipts and presence (RTDB-based)
-- 🔄 Image sharing
-- 🔄 Foreground push notifications
+- ✅ Image sharing
+- ✅ Foreground push notifications (Expo Push API)
 
 ## 🧪 Testing
 
@@ -284,10 +284,21 @@ MIT License - see the [LICENSE](LICENSE) file for details
 
 ## 🎉 Current Status
 
-**Phase:** PRD 06.1 Complete (RTDB Presence Migration)
-**Progress:** ~85% (Core messaging, offline support, groups, and presence complete)
-**Android:** ✅ Building and running
-**iOS:** Deferred (Windows limitation - use EAS Build)
+**Phase:** PRD 08 Complete (Push Notifications)
+**Progress:** ~95% (Core messaging, offline support, groups, presence, image sharing, and push notifications complete)
+**Android:** ✅ Building and running with full functionality
+**iOS:** ✅ Working in Expo Go (foreground notifications only without APNs certificate)
 
-Ready to start PRD 07: Image Sharing!
+### Latest Completed Features
+
+**PRD 08: Push Notifications (Foreground)**
+- ✅ Expo Push Notifications integration
+- ✅ Cloud Function with Expo Server SDK
+- ✅ Rich notification payloads (sender name, message type, conversation context)
+- ✅ Notification collapsing and grouping by conversation
+- ✅ Deep linking to conversations on notification tap
+- ✅ Automatic invalid token cleanup
+- ✅ Authentication persistence across app restarts
+
+Ready for production deployment!
 

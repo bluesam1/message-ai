@@ -11,6 +11,9 @@ node_modules/
 # Keep index.ts
 !src/**/*.ts
 
+# Keep test scripts
+!test-notifications.js
+
 # Logs
 *.log
 npm-debug.log*

@@ -14,6 +14,8 @@ import { AuthProvider, useAuth } from '../src/store/AuthContext';
 import { networkService } from '../src/services/network/networkService';
 import { syncPendingMessages } from '../src/services/messaging/syncService';
 import { initDatabase } from '../src/services/sqlite/sqliteService';
+import { useNotifications } from '../src/hooks/useNotifications';
+import { LoadingScreen } from '../src/components/LoadingScreen';
 
 // Temporarily disable LogBox to see the actual app
 LogBox.ignoreAllLogs(true);
@@ -22,6 +24,9 @@ function RootLayoutNav() {
   const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Initialize notification handling
+  useNotifications();
 
   useEffect(() => {
     if (loading) return; // Don't do anything while loading
@@ -36,6 +41,11 @@ function RootLayoutNav() {
       router.replace('/(tabs)');
     }
   }, [user, loading, segments]);
+
+  // Show loading screen while determining authentication state
+  if (loading) {
+    return <LoadingScreen message="Checking authentication..." />;
+  }
 
   return (
     <Stack

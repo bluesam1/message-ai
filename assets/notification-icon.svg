@@ -1,0 +1,9 @@
+<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mountain silhouette in white/transparent for Android notifications -->
+  <path d="M8 72L24 48L40 56L56 32L72 40L88 16V88H8V72Z" fill="white"/>
+  <!-- Message bubble overlay -->
+  <circle cx="76" cy="24" r="12" fill="white"/>
+  <path d="M76 18C78.2 18 80 19.8 80 22C80 24.2 78.2 26 76 26C73.8 26 72 24.2 72 22C72 19.8 73.8 18 76 18Z" fill="#4CAF50"/>
+  <!-- Small mountain peak accent -->
+  <path d="M12 68L20 60L28 64L36 52L44 56L52 44L60 48L68 36L76 40L84 28L88 32V88H12V68Z" fill="#4CAF50" opacity="0.3"/>
+</svg>

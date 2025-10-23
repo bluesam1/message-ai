@@ -138,6 +138,7 @@
  *   online: boolean          // Whether user is currently online
  *   lastSeen: timestamp      // Last activity timestamp (updated when user goes offline)
  *   createdAt: timestamp     // Account creation timestamp
+ *   expoPushTokens: string[] // Array of Expo push tokens for push notifications (multiple devices)
  * }
  * 
  * Indexes:
