@@ -2,7 +2,7 @@
 
 **Phase:** 2 - International Communicator  
 **Sub-Phase:** 2.2  
-**Duration:** 6-8 hours  
+**Duration:** 12-15 hours  
 **Dependencies:** Sub-Phase 2.1 complete (Cloud Functions + OpenAI working)
 
 ---
@@ -15,12 +15,30 @@ Make translation proactive and automatic by detecting incoming message languages
 
 ## 📋 Scope
 
-### Feature 4: Language Detection & Auto-Translate
+### Feature 4A: User Preferred Language (Foundation)
+
+**User Experience**
+- During sign-up, user is asked "What's your preferred language?"
+- Language selector shows common languages (English, Spanish, Chinese, etc.)
+- User's selection is saved to their profile
+- This preference becomes the default for auto-translate settings in all conversations
+- Users can change their preferred language anytime in Settings
+- Existing users (lazy migration): Default to English until they set a preference
+
+**Technical Requirements**
+- Add `preferredLanguage` field to users collection (ISO 639-1 code)
+- Create language selection screen during onboarding
+- Add "Language" setting in user profile/settings
+- Use preferred language as default when enabling auto-translate
+- Lazy migration: Check if field exists, default to 'en' if not
+- Store language preference in Firestore for cross-device sync
+
+### Feature 4B: Language Detection & Auto-Translate
 
 **User Experience**
 - System automatically detects the language of incoming messages
 - User can toggle "Auto-translate messages" per conversation
-- User sets preferred language: "Always translate to [English/Spanish/French/etc.]"
+- When toggling on for first time, target language defaults to user's preferred language
 - When enabled, incoming foreign messages automatically translate
 - Loading indicator shows during translation
 - User can tap to view original message
@@ -63,14 +81,34 @@ This advanced feature demonstrates multi-step AI orchestration:
 
 ### Firestore Schema Extensions
 
+**users collection:**
+Add `preferredLanguage` field:
+
+```typescript
+{
+  uid: string,
+  email: string,
+  displayName: string,
+  photoURL?: string,
+  online: boolean,
+  lastSeen: timestamp,
+  createdAt: timestamp,
+  
+  // NEW FIELD:
+  preferredLanguage: string     // ISO 639-1 code (e.g., 'en', 'es', 'zh'). Default: 'en'
+}
+```
+
 **conversations collection:**
-Add `aiPrefs` object:
+Add `aiPrefs` object (now per-user):
 
 ```typescript
 aiPrefs: {
-  targetLang: string,           // e.g., 'en', 'es', 'fr', 'de'
-  autoTranslate: boolean,       // Enable/disable auto-translate
-  defaultTone?: string          // For future formality features (Sub-Phase 2.3)
+  [userId: string]: {           // Map of user IDs to their preferences
+    targetLang: string,         // e.g., 'en', 'es', 'fr', 'de' (defaults to user's preferredLanguage)
+    autoTranslate: boolean,     // Enable/disable auto-translate
+    defaultTone?: string        // For future formality features (Sub-Phase 2.3)
+  }
 }
 ```
 
@@ -79,9 +117,11 @@ Extend `aiMeta` object:
 
 ```typescript
 aiMeta: {
-  detectedLang: string,         // Language code (e.g., 'en', 'es')
-  translatedText: string,       // Translated message text
-  feedback?: 'positive' | 'negative',  // User rating of translation
+  detectedLang: string,                    // Language code (e.g., 'en', 'es')
+  translatedText: {                        // Translations keyed by language code
+    [lang: string]: string                 // e.g., { "en": "Hello", "es": "Hola" }
+  },
+  feedback?: 'positive' | 'negative',      // User rating of translation
   ...existing fields from 2.1
 }
 ```
@@ -90,31 +130,42 @@ aiMeta: {
 
 ## 👤 User Stories
 
-**US-030:** As a user, I want messages in other languages to automatically translate so I don't have to manually request translation.
+**US-029:** As a new user, I want to select my preferred language during sign-up so the app knows what language I speak.
 
-**US-031:** As a user, I can set "Always translate to English" for a specific conversation so all future messages translate automatically.
+**US-030:** As a user, I want messages in other languages to automatically translate to my preferred language so I don't have to manually request translation.
 
-**US-032:** As a user, I can toggle auto-translate on/off per conversation based on my needs.
+**US-031:** As a user, I can set "Always translate to [my preferred language]" for a specific conversation so all future messages translate automatically.
 
-**US-033:** As a user, I want to see a loading indicator while messages are being translated so I know the system is working.
+**US-032:** As a user, I can change my preferred language in Settings so the app adapts to my needs.
 
-**US-034:** As a user, I can tap a translated message to view the original text and verify accuracy.
+**US-033:** As a user, I can toggle auto-translate on/off per conversation based on my needs.
 
-**US-035:** As a user, I can rate translations (helpful/not helpful) to improve future translations.
+**US-034:** As a user, I want to see a loading indicator while messages are being translated so I know the system is working.
 
-**US-036:** As a user, I want my translation preferences to persist across app restarts so I don't have to reconfigure.
+**US-035:** As a user, I can tap a translated message to view the original text and verify accuracy.
+
+**US-036:** As a user, I can rate translations (helpful/not helpful) to improve future translations.
+
+**US-037:** As a user, I want my translation preferences to persist across app restarts so I don't have to reconfigure.
+
+**US-038:** As an existing user (lazy migration), the app defaults to English for auto-translate until I set my preferred language in Settings.
 
 ---
 
 ## ✅ Success Criteria
 
 ### Functional Requirements
+- [ ] New users are prompted to select preferred language during sign-up
+- [ ] Preferred language is saved to user profile in Firestore
+- [ ] Preferred language can be changed in Settings
+- [ ] Auto-translate defaults to user's preferred language
+- [ ] Existing users default to English (lazy migration)
 - [ ] Language detection accuracy > 90% (tested with 10+ languages)
 - [ ] Auto-translate toggle works per conversation
 - [ ] Target language selector shows common languages
 - [ ] Preferences persist in Firestore and reload correctly
 - [ ] Incoming messages auto-translate when enabled
-- [ ] Users can view original message by tapping translation
+- [ ] Users can view original message by tapping globe badge
 - [ ] Translation quality feedback mechanism works
 - [ ] System suggests auto-translate if user frequently manually translates
 
@@ -301,7 +352,33 @@ Upon completion of Sub-Phase 2.2:
 
 ---
 
-**Status:** Not Started  
-**Assigned To:** TBD  
-**Target Completion:** TBD
+**Status:** ✅ COMPLETE - All features implemented and deployed
+**Assigned To:** Completed  
+**Target Completion:** October 23, 2025
+
+---
+
+## 📝 Recent Updates
+
+**2025-10-23:** Added Feature 4A (User Preferred Language) including:
+- Language selection during sign-up
+- Settings screen for changing preferred language
+- Lazy migration for existing users
+- Auto-translate defaults to user's preferred language
+
+**2025-10-23:** Additional Features Implemented:
+- ✅ User preferred language integration with auto-translate
+- ✅ Language selection during onboarding
+- ✅ Profile settings for language preferences
+- ✅ Auto-translate toggle with globe icon animation
+- ✅ Cultural context explanation with language-aware prompts
+- ✅ Simplified language selection (bottom sheet modal)
+- ✅ Translation preview in conversation list
+- ✅ SQLite offline storage for translations
+- ✅ Real-time translation for push notifications
+- ✅ Cloud Functions refactoring for maintainability
+- ✅ Group info button repositioned next to group name
+- ✅ Debug elements removed from Cultural Context modal
+- ✅ Manual translation option removed from message menu
+- ✅ Test notification button removed from profile
 

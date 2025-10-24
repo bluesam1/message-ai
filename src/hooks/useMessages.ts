@@ -64,11 +64,29 @@ export default function useMessages(
 
         // Step 2: Set up real-time listener for live updates
         unsubscribe = listenToMessages(conversationId, (liveMessages) => {
-          // Use live messages directly from Firestore (already includes all messages)
-          // The listener is already saving to SQLite, so we don't need to merge
-          const sorted = sortMessagesByTimestamp(liveMessages).reverse();
+          setMessages((prevMessages) => {
+            // Keep temp messages that aren't yet in Firestore
+            // Match by content to handle cases where temp message was updated with real ID
+            const tempMessages = prevMessages.filter(msg => {
+              if (!msg.id.startsWith('temp_')) return false;
+              
+              // Check if this temp message now exists in Firestore (by content matching)
+              const matchInFirestore = liveMessages.find(liveMsg =>
+                liveMsg.senderId === msg.senderId &&
+                liveMsg.text === msg.text &&
+                Math.abs(liveMsg.timestamp - msg.timestamp) < 5000 // Within 5 seconds
+              );
+              
+              return !matchInFirestore; // Keep if no match found
+            });
+            
+            // Combine temp messages with live messages from Firestore
+            const allMessages = [...tempMessages, ...liveMessages];
+            
+            // Sort by timestamp (newest first for chat display)
+            return sortMessagesByTimestamp(allMessages).reverse();
+          });
           
-          setMessages(sorted);
           setLoading(false);
         });
       } catch (err) {
@@ -126,20 +144,22 @@ export default function useMessages(
 
   /**
    * Send a message
-   * Uses optimistic update - message appears immediately
+   * Uses optimistic update - message appears immediately with status indicator
    */
   const sendMessage = useCallback(
     async (text: string) => {
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
       try {
         // Create temporary message for optimistic update
         const tempMessage: Message = {
-          id: `temp_${Date.now()}`,
+          id: tempId,
           conversationId,
           senderId: currentUserId,
           text: text.trim(),
           imageUrl: null,
           timestamp: Date.now(),
-          status: 'pending',
+          status: 'pending', // Show clock icon
           readBy: [currentUserId],
           createdAt: Date.now(),
         };
@@ -147,28 +167,31 @@ export default function useMessages(
         // Add to messages immediately (optimistic update)
         setMessages((prev) => [tempMessage, ...prev]);
 
-        // Send message to backend
+        // Send message to backend (Firestore queues it automatically)
         await sendMessageService(
           conversationId,
           text,
           currentUserId
         );
 
-        // Don't replace - let the Firestore listener handle it
-        // This prevents conflicts with the real-time update
-        // Remove the temp message
-        setMessages((prev) => prev.filter(msg => msg.id !== tempMessage.id));
+        // Update status to 'sent' - show checkmark
+        // The real message will come from Firestore listener and replace this temp one
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId ? { ...msg, status: 'sent' as const } : msg
+          )
+        );
       } catch (err) {
         console.error('[useMessages] Error sending message:', err);
         
-        // Update message status to failed
+        // Update status to 'failed' - show red alert icon
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id.startsWith('temp_') ? { ...msg, status: 'failed' as const } : msg
+            msg.id === tempId ? { ...msg, status: 'failed' as const } : msg
           )
         );
         
-        throw err;
+        // Don't throw - allow user to retry
       }
     },
     [conversationId, currentUserId]

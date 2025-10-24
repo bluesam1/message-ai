@@ -1,7 +1,7 @@
 /**
  * Conversations Screen
- * Displays list of user's conversations
- * Allows starting new chats
+ * Displays list of user's conversations with real-time last message fetching
+ * Uses the new LastMessageService for personalized translations
  */
 
 import React, { useEffect, useState } from 'react';
@@ -13,165 +13,191 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Unsubscribe } from 'firebase/firestore';
 import { useAuth } from '../../src/store/AuthContext';
-import { getUserConversations } from '../../src/services/messaging/conversationService';
+import { getUserConversations, enrichConversationsWithUserData } from '../../src/services/messaging/conversationService';
+import { getLastMessagePreviews, LastMessagePreview } from '../../src/services/messaging/lastMessageService';
 import { ConversationWithParticipants } from '../../src/types/message';
 import { getRelativeTime } from '../../src/utils/messageUtils';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../src/config/firebase';
 import { User } from '../../src/types/user';
-import { initDatabase } from '../../src/services/sqlite/sqliteService';
+import { useCurrentTime } from '../../src/hooks/useCurrentTime';
 import PresenceIndicator from '../../src/components/users/PresenceIndicator';
 
 export default function ConversationsScreen() {
   const { user } = useAuth();
+  const currentTime = useCurrentTime(); // Updates every second for dynamic relative times
   const [conversations, setConversations] = useState<ConversationWithParticipants[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastMessagePreviews, setLastMessagePreviews] = useState<{ [conversationId: string]: LastMessagePreview }>({});
+  const [unsubscribe, setUnsubscribe] = useState<Unsubscribe | null>(null);
 
   /**
-   * Initialize database on mount
+   * Fetch last message previews for all conversations
    */
-  useEffect(() => {
-    initDatabase().catch((err) => {
-      console.error('[Conversations] Failed to initialize database:', err);
-    });
-  }, []);
+  const fetchLastMessagePreviews = async (convs: ConversationWithParticipants[]) => {
+    if (!user?.uid) {
+      console.log('[Conversations] No user, skipping last message previews');
+      return;
+    }
 
-  /**
-   * Load user information for conversations
-   */
-  const enrichConversationsWithUserData = async (
-    convs: ConversationWithParticipants[]
-  ): Promise<ConversationWithParticipants[]> => {
-    const enriched = await Promise.all(
-      convs.map(async (conv) => {
-        if (conv.type === 'direct' && user) {
-          // Get the other participant's ID
-          const otherParticipantId = conv.participants.find((id) => id !== user.uid);
-          
-          if (otherParticipantId) {
-            try {
-              // Fetch other participant's data
-              const usersRef = collection(db, 'users');
-              const userQuery = query(usersRef, where('uid', '==', otherParticipantId));
-              const userSnapshot = await getDocs(userQuery);
-              
-              if (!userSnapshot.empty) {
-                const userData = userSnapshot.docs[0].data();
-                return {
-                  ...conv,
-                  otherParticipantId,
-                  otherParticipantName: userData.displayName || 'Unknown User',
-                  otherParticipantPhotoURL: userData.photoURL || null,
-                };
-              }
-            } catch (err) {
-              console.error('[Conversations] Error fetching user data:', err);
-            }
-          }
-        }
-        
-        return conv;
-      })
-    );
+    console.log('[Conversations] 🔄 Fetching last message previews for', convs.length, 'conversations');
     
-    return enriched;
+    try {
+      const conversationIds = convs.map(conv => conv.id);
+      console.log('[Conversations] 📋 Conversation IDs:', conversationIds);
+      
+      const previews = await getLastMessagePreviews(conversationIds, user.uid);
+      
+      console.log('[Conversations] 📊 Preview results:', {
+        totalConversations: convs.length,
+        previewsFound: Object.keys(previews).length,
+        allConversationIds: Object.keys(previews)
+      });
+      
+      setLastMessagePreviews(prev => ({ ...prev, ...previews }));
+      console.log('[Conversations] ✅ Updated last message previews');
+      
+    } catch (error) {
+      console.error('[Conversations] ❌ Error fetching last message previews:', error);
+    }
   };
 
   /**
-   * Set up conversations listener
+   * Handle pull-to-refresh
+   */
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Re-fetch last message previews for current conversations
+      if (user?.uid && conversations.length > 0) {
+        await fetchLastMessagePreviews(conversations);
+      }
+    } catch (err) {
+      console.error('[Conversations] Error refreshing:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  /**
+   * Setup conversation listener
+   */
+  const setupListener = async () => {
+    if (!user?.uid) return;
+
+    try {
+      console.log('[Conversations] 🔧 Setting up conversation listener for user:', user.uid);
+      const unsubscribe = await getUserConversations(user.uid, async (convs) => {
+        console.log('[Conversations] 📨 Received conversation update:', {
+          count: convs.length,
+          conversations: convs.map(c => ({
+            id: c.id,
+            lastMessageTime: c.lastMessageTime,
+            hasAiPrefs: !!c.aiPrefs,
+            participants: c.participants,
+            type: c.type
+          })),
+          timestamp: new Date().toISOString()
+        });
+        
+        // Enrich conversations with user data
+        const enriched = await enrichConversationsWithUserData(convs, user.uid);
+        setConversations(enriched);
+        
+        // Fetch last message previews for all conversations
+        console.log('[Conversations] 🔄 Calling fetchLastMessagePreviews with', enriched.length, 'conversations');
+        await fetchLastMessagePreviews(enriched);
+        
+        setLoading(false);
+      });
+      
+      setUnsubscribe(() => unsubscribe);
+    } catch (err) {
+      console.error('[Conversations] Error setting up listener:', err);
+      setError('Failed to load conversations');
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Cleanup listener on unmount
    */
   useEffect(() => {
-    if (!user) return;
-
-    let unsubscribe: Unsubscribe | null = null;
-
-    const setupListener = async () => {
-      try {
-        unsubscribe = await getUserConversations(user.uid, async (convs) => {
-          const enriched = await enrichConversationsWithUserData(convs);
-          setConversations(enriched);
-          setLoading(false);
-        });
-      } catch (err) {
-        console.error('[Conversations] Error setting up listener:', err);
-        setError('Failed to load conversations');
-        setLoading(false);
-      }
-    };
-
-    setupListener();
-
     return () => {
       if (unsubscribe) {
+        console.log('[Conversations] 🧹 Cleaning up conversation listener');
         unsubscribe();
       }
     };
-  }, [user]);
+  }, [unsubscribe]);
 
   /**
-   * Navigate to chat screen
+   * Setup listener when user changes
    */
-  const openChat = (conversation: ConversationWithParticipants) => {
-    router.push(`/chat/${conversation.id}`);
-  };
+  useEffect(() => {
+    if (user?.uid) {
+      setupListener();
+    }
+  }, [user?.uid]);
 
   /**
-   * Navigate to new chat screen
-   */
-  const startNewChat = () => {
-    router.push('/new-chat');
-  };
-
-  /**
-   * Navigate to new group screen
-   */
-  const startNewGroup = () => {
-    router.push('/new-group');
-  };
-
-  /**
-   * Render a conversation item
+   * Render conversation item
    */
   const renderConversationItem = ({ item }: { item: ConversationWithParticipants }) => {
     const isGroup = item.type === 'group';
-    const displayName = isGroup 
-      ? (item.groupName || 'Unnamed Group')
-      : (item.otherParticipantName || 'Unknown User');
+    const displayName = isGroup ? (item.groupName || 'Group') : (item.otherParticipantName || 'Unknown');
     const photoURL = isGroup ? item.groupPhoto : item.otherParticipantPhotoURL;
-    const timeAgo = item.lastMessageTime ? getRelativeTime(item.lastMessageTime) : '';
-    const memberCount = isGroup ? item.participants.length : 0;
-
-    // Group avatar shows first letter of group name, with different color
-    const avatarStyle = isGroup 
-      ? [styles.avatar, styles.groupAvatarPlaceholder] 
-      : [styles.avatar, styles.avatarPlaceholder];
+    const timeAgo = getRelativeTime(item.lastMessageTime, currentTime);
+    const memberCount = item.participantNames?.length || 0;
+    
+    // Check if auto-translate is enabled for this conversation
+    const hasAutoTranslate = user?.uid && item.aiPrefs?.[user.uid]?.autoTranslate;
+    
+    // Get the last message preview
+    const lastMessagePreview = lastMessagePreviews[item.id];
+    const lastMessageText = lastMessagePreview?.text || 'No messages yet';
+    const isTranslated = lastMessagePreview?.isTranslated || false;
+    
+    console.log(`[Conversations] Rendering conversation ${item.id}:`, {
+      displayName,
+      lastMessageText,
+      isTranslated,
+      hasAutoTranslate,
+      timeAgo
+    });
 
     return (
       <TouchableOpacity
         style={styles.conversationItem}
-        onPress={() => openChat(item)}
-        activeOpacity={0.7}
+        onPress={() => router.push(`/chat/${item.id}`)}
       >
-        {/* Avatar */}
-        {photoURL ? (
-          <Image source={{ uri: photoURL }} style={styles.avatar} />
-        ) : (
-          <View style={avatarStyle}>
-            <Text style={styles.avatarText}>
-              {displayName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
+        {/* Profile Photo */}
+        <View style={styles.photoContainer}>
+          {photoURL ? (
+            <Image source={{ uri: photoURL }} style={styles.profilePhoto} />
+          ) : (
+            <View style={styles.defaultPhoto}>
+              <Text style={styles.defaultPhotoText}>
+                {isGroup ? 'G' : (displayName.charAt(0).toUpperCase())}
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* Conversation Info */}
         <View style={styles.conversationInfo}>
           <View style={styles.conversationHeader}>
-            <Text style={styles.displayName}>{displayName}</Text>
+            <View style={styles.displayNameRow}>
+              <Text style={styles.displayName}>{displayName}</Text>
+              {hasAutoTranslate && (
+                <Text style={styles.globeIcon}>🌐</Text>
+              )}
+            </View>
             {timeAgo && <Text style={styles.timestamp}>{timeAgo}</Text>}
           </View>
           
@@ -182,12 +208,11 @@ export default function ConversationsScreen() {
                 userId={item.otherParticipantId} 
                 showText={true}
                 size="small"
-                textStyle={styles.presenceText}
               />
             </View>
           )}
           
-          {/* Member count for groups */}
+          {/* Member count for group chats */}
           {isGroup && (
             <Text style={styles.memberCount}>
               {memberCount} {memberCount === 1 ? 'member' : 'members'}
@@ -195,79 +220,53 @@ export default function ConversationsScreen() {
           )}
           
           {/* Last message */}
-          {item.lastMessage && (
-            <Text style={styles.lastMessage} numberOfLines={1} ellipsizeMode="tail">
-              {item.lastMessage}
-            </Text>
-          )}
+          <Text style={styles.lastMessage} numberOfLines={1} ellipsizeMode="tail">
+            {lastMessageText}
+          </Text>
         </View>
       </TouchableOpacity>
     );
   };
 
-  /**
-   * Render empty state
-   */
-  const renderEmptyState = () => {
-    if (loading) {
-      return (
-        <View style={styles.emptyState}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.emptyText}>Loading conversations...</Text>
-        </View>
-      );
-    }
-    if (error) {
-      return (
-        <View style={styles.emptyState}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      );
-    }
-
+  if (loading) {
     return (
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyIcon}>💬</Text>
-        <Text style={styles.emptyTitle}>No conversations yet</Text>
-        <Text style={styles.emptySubtitle}>
-          Tap the + button to start a new chat
-        </Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading conversations...</Text>
       </View>
     );
-  };
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Conversations List */}
       <FlatList
         data={conversations}
-        renderItem={renderConversationItem}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={
-          conversations.length === 0 ? styles.emptyListContent : undefined
+        renderItem={renderConversationItem}
+        style={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#007AFF']}
+            tintColor="#007AFF"
+          />
         }
-        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No conversations yet</Text>
+            <Text style={styles.emptySubtext}>Start a new chat to get started!</Text>
+          </View>
+        }
       />
-
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={styles.newGroupButton}
-          onPress={startNewGroup}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.newGroupButtonText}>👥</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.newChatButton}
-          onPress={startNewChat}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.newChatButtonText}>+</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -275,37 +274,38 @@ export default function ConversationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f8f9fa',
   },
-  emptyListContent: {
-    flexGrow: 1,
+  list: {
+    flex: 1,
   },
   conversationItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: '#e1e5e9',
   },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  photoContainer: {
     marginRight: 12,
   },
-  avatarPlaceholder: {
+  profilePhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+  defaultPhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  groupAvatarPlaceholder: {
-    backgroundColor: '#34C759',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 24,
+  defaultPhotoText: {
+    color: '#fff',
+    fontSize: 20,
     fontWeight: '600',
   },
   conversationInfo: {
@@ -317,103 +317,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  displayNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   displayName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000000',
+    color: '#1c1c1e',
+    flex: 1,
+  },
+  globeIcon: {
+    fontSize: 14,
+    marginLeft: 6,
   },
   timestamp: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: '#8e8e93',
+    marginLeft: 8,
   },
   presenceRow: {
     marginBottom: 4,
   },
-  presenceText: {
-    fontSize: 12,
-  },
   memberCount: {
     fontSize: 12,
-    color: '#34C759',
-    fontWeight: '500',
-    marginBottom: 2,
+    color: '#8e8e93',
+    marginBottom: 4,
   },
   lastMessage: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: '#8e8e93',
+    marginTop: 2,
   },
-  emptyState: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    backgroundColor: '#f8f9fa',
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
+  loadingText: {
+    marginTop: 16,
     fontSize: 16,
-    color: '#8E8E93',
-    textAlign: 'center',
+    color: '#8e8e93',
   },
-  emptyText: {
-    fontSize: 16,
-    color: '#8E8E93',
-    marginTop: 12,
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 20,
   },
   errorText: {
     fontSize: 16,
-    color: '#FF3B30',
+    color: '#ff3b30',
     textAlign: 'center',
   },
-  actionButtons: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    flexDirection: 'column',
-    gap: 12,
-  },
-  newChatButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007AFF',
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    padding: 40,
   },
-  newChatButtonText: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '300',
-    marginTop: -2,
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1c1c1e',
+    marginBottom: 8,
   },
-  newGroupButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#34C759',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  newGroupButtonText: {
-    fontSize: 24,
+  emptySubtext: {
+    fontSize: 14,
+    color: '#8e8e93',
+    textAlign: 'center',
   },
 });
-

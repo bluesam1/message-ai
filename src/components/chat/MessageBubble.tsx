@@ -10,6 +10,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Message } from '../../types/message';
 import { getRelativeTime } from '../../utils/messageUtils';
 import { TranslationView } from './TranslationView';
+import { TranslationToggle } from './TranslationToggle';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 interface MessageBubbleProps {
   /** Message object to display */
@@ -39,6 +42,11 @@ interface MessageBubbleProps {
     isLoading: boolean;
     error: string | null;
   };
+  /** Auto-translate preferences for the conversation */
+  autoTranslatePrefs?: {
+    targetLang: string;
+    autoTranslate: boolean;
+  };
 }
 
 /**
@@ -58,7 +66,32 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
     totalParticipants,
     onLongPress,
     translationState,
+    autoTranslatePrefs,
   }) => {
+    // Check if message has auto-translation
+    // Only show auto-translation for messages from others (not own messages)
+    const hasAutoTranslation = 
+      !isOwnMessage &&
+      autoTranslatePrefs?.autoTranslate &&
+      autoTranslatePrefs.targetLang &&
+      message.aiMeta?.translatedText?.[autoTranslatePrefs.targetLang];
+
+    // State for showing original text modal
+    const [showOriginalModal, setShowOriginalModal] = React.useState(false);
+
+    // Handle translation feedback
+    const handleFeedback = async (feedback: 'positive' | 'negative') => {
+      try {
+        const messageRef = doc(db, 'messages', message.id);
+        await updateDoc(messageRef, {
+          'aiMeta.feedback': feedback,
+        });
+        console.log(`[MessageBubble] Saved translation feedback: ${feedback}`);
+      } catch (error) {
+        console.error('[MessageBubble] Error saving feedback:', error);
+      }
+    };
+
     /**
      * Render message status indicator with read receipts
      */
@@ -177,15 +210,40 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
               isOwnMessage ? styles.ownBubble : styles.otherBubble,
             ]}
           >
-            {/* Message Text */}
-            <Text
-              style={[
-                styles.messageText,
-                isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-              ]}
-            >
-              {message.text}
-            </Text>
+            {/* Globe Icon for Auto-Translated Messages */}
+            {hasAutoTranslation && (
+              <TouchableOpacity
+                style={styles.globeIcon}
+                onPress={() => setShowOriginalModal(true)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.globeEmoji}>🌐</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Message Text or Auto-Translation */}
+            {hasAutoTranslation ? (
+              <TranslationToggle
+                originalText={message.text}
+                translatedText={message.aiMeta!.translatedText![autoTranslatePrefs!.targetLang]}
+                targetLanguage={autoTranslatePrefs!.targetLang}
+                isOwnMessage={isOwnMessage}
+                feedback={message.aiMeta?.feedback}
+                onFeedback={handleFeedback}
+                onShowOriginal={() => setShowOriginalModal(true)}
+                showOriginal={showOriginalModal}
+                onCloseModal={() => setShowOriginalModal(false)}
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.messageText,
+                  isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                ]}
+              >
+                {message.text}
+              </Text>
+            )}
 
             {/* Timestamp and Status */}
             <View style={styles.metaContainer}>
@@ -318,6 +376,29 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     marginTop: 2,
     fontStyle: 'italic',
+  },
+  globeIcon: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    zIndex: 10,
+    width: 18,
+    height: 18,
+    backgroundColor: '#007AFF',
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  globeEmoji: {
+    fontSize: 10,
+    lineHeight: 10,
   },
 });
 

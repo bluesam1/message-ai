@@ -74,10 +74,12 @@ export default function RootLayout() {
 
     // Subscribe to network changes and trigger sync when reconnected
     const unsubscribe = networkService.subscribe((online) => {
+      console.log('[App] Network state changed:', online ? 'ONLINE' : 'OFFLINE');
       if (online) {
+        console.log('[App] Triggering sync on reconnection...');
         // Trigger sync when coming back online
         syncPendingMessages().catch((error) => {
-          console.error('Failed to sync on reconnection:', error);
+          console.error('[App] Failed to sync on reconnection:', error);
         });
       }
     });

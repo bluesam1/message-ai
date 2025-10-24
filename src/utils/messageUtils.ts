@@ -24,6 +24,7 @@ export function generateMessageId(): string {
  * Returns human-readable relative time like "Just now", "5m ago", "2h ago", etc.
  * 
  * @param {number} timestamp - Unix timestamp in milliseconds
+ * @param {number} currentTime - Optional current time in milliseconds (defaults to Date.now())
  * @returns {string} Relative time string
  * 
  * @example
@@ -31,8 +32,8 @@ export function generateMessageId(): string {
  * getRelativeTime(Date.now() - 300000); // Returns: "5m ago"
  * getRelativeTime(Date.now() - 7200000); // Returns: "2h ago"
  */
-export function getRelativeTime(timestamp: number): string {
-  const now = Date.now();
+export function getRelativeTime(timestamp: number, currentTime?: number): string {
+  const now = currentTime || Date.now();
   const diffMs = now - timestamp;
   
   // Less than 1 minute

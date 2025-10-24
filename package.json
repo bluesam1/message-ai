@@ -6,8 +6,6 @@
     "start": "expo start",
     "clean": "expo start --clear --tunnel",
     "rebuild": "expo start --clear",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

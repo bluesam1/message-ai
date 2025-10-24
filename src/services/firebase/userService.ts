@@ -37,6 +37,7 @@ export const createUserProfile = async (
       online: true,
       lastSeen: serverTimestamp(),
       createdAt: serverTimestamp(),
+      preferredLanguage: 'en', // Default language for new users (can be changed in settings)
     };
 
     await setDoc(userRef, profileData);

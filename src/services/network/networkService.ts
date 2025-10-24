@@ -45,8 +45,16 @@ class NetworkService {
     const wasOffline = !this.isOnlineState;
     const newOnlineState = state.isConnected ?? false;
 
+    console.log(`[NetworkService] Network state change detected:`, {
+      wasOffline,
+      wasOnline: this.isOnlineState,
+      newOnlineState,
+      stateChanged: this.isOnlineState !== newOnlineState
+    });
+
     // Only process if state actually changed
     if (this.isOnlineState === newOnlineState) {
+      console.log('[NetworkService] No actual state change, skipping');
       return;
     }
 
@@ -56,11 +64,11 @@ class NetworkService {
     this.notifyListeners(newOnlineState);
 
     // Log state change
-    console.log(`Network state changed: ${newOnlineState ? 'ONLINE' : 'OFFLINE'}`);
+    console.log(`[NetworkService] Network state changed: ${newOnlineState ? 'ONLINE' : 'OFFLINE'}`);
 
     // If we just came back online, trigger sync
     if (wasOffline && newOnlineState) {
-      console.log('Network reconnected - triggering sync');
+      console.log('[NetworkService] Network reconnected - listeners will trigger sync');
       // Notify listeners - they can trigger sync if needed
       // This avoids circular dependency and dynamic import issues
     }

@@ -68,10 +68,10 @@ async function initDatabaseInternal(): Promise<void> {
         groupName TEXT,
         groupPhoto TEXT,
         createdBy TEXT NOT NULL,
-        lastMessage TEXT,
         lastMessageTime INTEGER,
         createdAt INTEGER NOT NULL,
-        updatedAt INTEGER NOT NULL
+        updatedAt INTEGER NOT NULL,
+        aiPrefs TEXT
       );
     `);
     
@@ -95,6 +95,39 @@ async function initDatabaseInternal(): Promise<void> {
       console.warn('[SQLite] Migration warning:', error);
     }
     
+    // Migrate messages table to add aiMeta column for translations (if it doesn't exist)
+    try {
+      const messagesTableInfo = await db.getAllAsync(`PRAGMA table_info(messages)`);
+      const hasAiMeta = messagesTableInfo.some((col: any) => col.name === 'aiMeta');
+      
+      if (!hasAiMeta) {
+        await db.execAsync(`ALTER TABLE messages ADD COLUMN aiMeta TEXT;`);
+        console.log('[SQLite] Added aiMeta column to messages table for offline translations');
+      } else {
+        console.log('[SQLite] aiMeta column already exists');
+      }
+    } catch (error) {
+      // If migration fails, log but don't throw - app can still work
+      console.warn('[SQLite] aiMeta migration warning:', error);
+    }
+    
+    // Migrate conversations table to add aiPrefs column (if it doesn't exist)
+    try {
+      const conversationsTableInfo = await db.getAllAsync(`PRAGMA table_info(conversations)`);
+      const hasAiPrefs = conversationsTableInfo.some((col: any) => col.name === 'aiPrefs');
+      
+      if (!hasAiPrefs) {
+        await db.execAsync(`ALTER TABLE conversations ADD COLUMN aiPrefs TEXT;`);
+        console.log('[SQLite] Added aiPrefs column to conversations table');
+      } else {
+        console.log('[SQLite] aiPrefs column already exists in conversations');
+      }
+    } catch (error) {
+      // If migration fails, log but don't throw - app can still work
+      console.warn('[SQLite] aiPrefs migration warning:', error);
+    }
+    
+    
     // Create messages table
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -107,6 +140,7 @@ async function initDatabaseInternal(): Promise<void> {
         status TEXT NOT NULL,
         readBy TEXT NOT NULL,
         createdAt INTEGER NOT NULL,
+        aiMeta TEXT,
         FOREIGN KEY (conversationId) REFERENCES conversations(id)
       );
     `);
@@ -196,8 +230,8 @@ export async function saveMessage(message: Message): Promise<void> {
     
     await database.runAsync(
       `INSERT OR REPLACE INTO messages 
-       (id, conversationId, senderId, text, imageUrl, timestamp, status, readBy, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, conversationId, senderId, text, imageUrl, timestamp, status, readBy, createdAt, aiMeta)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         message.id,
         message.conversationId,
@@ -208,10 +242,11 @@ export async function saveMessage(message: Message): Promise<void> {
         message.status,
         JSON.stringify(message.readBy),
         message.createdAt,
+        message.aiMeta ? JSON.stringify(message.aiMeta) : null,
       ]
     );
     
-    console.log('[SQLite] Message saved:', message.id);
+    console.log('[SQLite] Message saved:', message.id, message.aiMeta ? '(with translations)' : '');
   } catch (error) {
     console.error('[SQLite] Failed to save message:', error);
     throw error;
@@ -252,9 +287,11 @@ export async function getMessages(
       status: row.status as MessageStatus,
       readBy: JSON.parse(row.readBy),
       createdAt: row.createdAt,
+      aiMeta: row.aiMeta ? JSON.parse(row.aiMeta) : undefined,
     }));
     
-    console.log(`[SQLite] Retrieved ${messages.length} messages for conversation ${conversationId}`);
+    const translationsCount = messages.filter(m => m.aiMeta?.translatedText).length;
+    console.log(`[SQLite] Retrieved ${messages.length} messages for conversation ${conversationId} (${translationsCount} with translations)`);
     return messages;
   } catch (error) {
     console.error('[SQLite] Failed to get messages:', error);
@@ -302,7 +339,7 @@ export async function saveConversation(conversation: Conversation): Promise<void
     
     await database.runAsync(
       `INSERT OR REPLACE INTO conversations 
-       (id, participants, type, groupName, groupPhoto, createdBy, lastMessage, lastMessageTime, createdAt, updatedAt)
+       (id, participants, type, groupName, groupPhoto, createdBy, lastMessageTime, createdAt, updatedAt, aiPrefs)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         conversation.id,
@@ -311,14 +348,14 @@ export async function saveConversation(conversation: Conversation): Promise<void
         conversation.groupName,
         conversation.groupPhoto,
         conversation.createdBy,
-        conversation.lastMessage,
         conversation.lastMessageTime,
         conversation.createdAt,
-        conversation.updatedAt,
+        conversation.updatedAt || Date.now(),
+        conversation.aiPrefs ? JSON.stringify(conversation.aiPrefs) : null,
       ]
     );
     
-    console.log('[SQLite] Conversation saved:', conversation.id);
+    console.log('[SQLite] Conversation saved:', conversation.id, conversation.aiPrefs ? '(with AI prefs)' : '');
   } catch (error) {
     console.error('[SQLite] Failed to save conversation:', error);
     throw error;
@@ -348,10 +385,10 @@ export async function getConversations(): Promise<Conversation[]> {
       groupName: row.groupName || null,
       groupPhoto: row.groupPhoto || null,
       createdBy: row.createdBy || row.participants[0],
-      lastMessage: row.lastMessage,
       lastMessageTime: row.lastMessageTime,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      aiPrefs: row.aiPrefs ? JSON.parse(row.aiPrefs) : undefined,
     }));
     
     console.log(`[SQLite] Retrieved ${conversations.length} conversations`);
@@ -388,10 +425,10 @@ export async function getConversation(conversationId: string): Promise<Conversat
       groupName: row.groupName || null,
       groupPhoto: row.groupPhoto || null,
       createdBy: row.createdBy || JSON.parse(row.participants)[0],
-      lastMessage: row.lastMessage,
       lastMessageTime: row.lastMessageTime,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      aiPrefs: row.aiPrefs ? JSON.parse(row.aiPrefs) : undefined,
     };
     
     return conversation;
@@ -453,17 +490,15 @@ export async function deleteConversation(conversationId: string): Promise<void> 
 }
 
 /**
- * Update conversation's last message info
+ * Update conversation's last message time
  * Used when a new message is sent/received
  * 
  * @param {string} conversationId - Conversation ID
- * @param {string} lastMessage - Preview text of last message
  * @param {number} lastMessageTime - Timestamp of last message
  * @returns {Promise<void>}
  */
-export async function updateConversationLastMessage(
+export async function updateConversationLastMessageTime(
   conversationId: string,
-  lastMessage: string,
   lastMessageTime: number
 ): Promise<void> {
   try {
@@ -471,14 +506,14 @@ export async function updateConversationLastMessage(
     
     await database.runAsync(
       `UPDATE conversations 
-       SET lastMessage = ?, lastMessageTime = ?, updatedAt = ? 
+       SET lastMessageTime = ?, updatedAt = ? 
        WHERE id = ?`,
-      [lastMessage, lastMessageTime, Date.now(), conversationId]
+      [lastMessageTime, Date.now(), conversationId]
     );
     
-    console.log(`[SQLite] Conversation ${conversationId} last message updated`);
+    console.log(`[SQLite] Conversation ${conversationId} last message time updated`);
   } catch (error) {
-    console.error('[SQLite] Failed to update conversation last message:', error);
+    console.error('[SQLite] Failed to update conversation last message time:', error);
     throw error;
   }
 }
@@ -584,7 +619,7 @@ export const sqliteService = {
   getConversation,
   deleteMessage,
   deleteConversation,
-  updateConversationLastMessage,
+  updateConversationLastMessageTime,
   clearAllData,
   closeDatabase,
 };

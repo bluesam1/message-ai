@@ -6,6 +6,8 @@ import { Message } from '../../types/message';
 interface ExplainContextRequest {
   text: string;
   messageId?: string;
+  messageLanguage?: string; // Language of the original message
+  userLanguage?: string; // User's preferred language for the explanation
 }
 
 interface ExplainContextResponse {
@@ -17,39 +19,55 @@ interface ExplainContextResponse {
  * Get cultural context explanation for a message
  * Checks cache first, then calls Cloud Function if needed
  * @param message - Message to explain
+ * @param userLanguage - User's preferred language for the explanation
  * @returns Cultural context explanation
  */
-export async function explainMessageContext(message: Message): Promise<string> {
+export async function explainMessageContext(message: Message, userLanguage?: string, forceRefresh: boolean = false): Promise<string> {
   try {
-    // Check if explanation is already cached
+    console.log('[ContextService] Starting explanation for message:', message.id);
+    console.log('[ContextService] Message text:', message.text);
+    console.log('[ContextService] User language:', userLanguage);
+    console.log('[ContextService] Force refresh:', forceRefresh);
+    
+    // Check if explanation is already cached (unless force refresh)
     const cachedExplanation = message.aiMeta?.explanation;
-    if (cachedExplanation) {
-      console.log('Explanation found in cache');
+    if (cachedExplanation && !forceRefresh) {
+      console.log('[ContextService] Explanation found in cache');
       return cachedExplanation;
     }
 
     // Call Cloud Function
-    console.log(`Getting context explanation for message ${message.id}...`);
+    console.log(`[ContextService] Getting context explanation for message ${message.id}...`);
     const functions = getFunctions();
     const explainFn = httpsCallable<ExplainContextRequest, ExplainContextResponse>(
       functions,
       'explainContext'
     );
 
-    const result = await explainFn({
+    // Get message language from aiMeta or default to 'unknown'
+    const messageLanguage = message.aiMeta?.detectedLang || 'unknown';
+    console.log('[ContextService] Message language:', messageLanguage);
+    
+    const requestData = {
       text: message.text,
       messageId: message.id,
-    });
+      messageLanguage,
+      userLanguage: userLanguage || 'en',
+    };
+    console.log('[ContextService] Request data:', requestData);
+    
+    const result = await explainFn(requestData);
+    console.log('[ContextService] Cloud Function response:', result.data);
 
     const explanation = result.data.explanation;
 
     // Cache the explanation in Firestore
     await cacheExplanation(message.id, explanation);
 
-    console.log(`Context explanation completed: ${result.data.tokensUsed} tokens`);
+    console.log(`[ContextService] Context explanation completed: ${result.data.tokensUsed} tokens`);
     return explanation;
   } catch (error: any) {
-    console.error('Context explanation error:', error);
+    console.error('[ContextService] Context explanation error:', error);
     throw new Error(
       error.message || 'Failed to get context explanation. Please try again.'
     );

@@ -3,6 +3,8 @@ import { Message } from '../types/message';
 import { translateMessage } from '../services/ai/translationService';
 import { explainMessageContext } from '../services/ai/contextService';
 import { defineMessageSlang } from '../services/ai/definitionService';
+import { getUserLanguage } from '../services/user/userPreferencesService';
+import { useAuth } from '../store/AuthContext';
 
 interface AIState {
   selectedMessage: Message | null;
@@ -28,6 +30,7 @@ interface AIState {
 }
 
 export function useAIFeatures() {
+  const { user } = useAuth();
   const [aiState, setAIState] = useState<AIState>({
     selectedMessage: null,
     showActions: false,
@@ -124,19 +127,31 @@ export function useAIFeatures() {
    * Explain context for a message
    */
   const handleExplainContext = async (message: Message) => {
+    console.log('[useAIFeatures] Starting context explanation for message:', message.id);
+    
+    // Always reset state first
     setAIState((prev) => ({
       ...prev,
       selectedMessage: message,
       showContextExplanation: true,
       contextExplanation: {
-        text: message.aiMeta?.explanation || null,
+        text: null, // Always start fresh
         isLoading: true,
         error: null,
       },
     }));
 
+    // Small delay to ensure state is updated
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     try {
-      const explanation = await explainMessageContext(message);
+      // Get user's preferred language for the explanation
+      const userLanguage = user ? await getUserLanguage(user.uid) : 'en';
+      console.log('[useAIFeatures] User language:', userLanguage);
+      console.log('[useAIFeatures] Message language:', message.aiMeta?.detectedLang);
+      
+      const explanation = await explainMessageContext(message, userLanguage, true); // Force refresh
+      console.log('[useAIFeatures] Received explanation:', explanation);
       
       setAIState((prev) => ({
         ...prev,
@@ -147,7 +162,7 @@ export function useAIFeatures() {
         },
       }));
     } catch (error: any) {
-      console.error('Context explanation failed:', error);
+      console.error('[useAIFeatures] Context explanation failed:', error);
       setAIState((prev) => ({
         ...prev,
         contextExplanation: {

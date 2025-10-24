@@ -461,6 +461,81 @@ Verify all performance benchmarks are met, optimize bottlenecks, complete compre
 
 ---
 
+## 🏗️ Future Infrastructure Improvements
+
+### n8n Integration for AI Orchestration
+
+**Context:**  
+PRD 2.2 (Auto-Translation) was implemented using Cloud Functions for the auto-translate orchestrator. The original Phase 2 planning document specified using n8n for complex multi-step AI workflows. While the current Cloud Functions approach works well, n8n integration remains a valuable future enhancement for:
+
+**Benefits of n8n Integration:**
+- **Visual Workflow Management**: Design and modify AI workflows through n8n's no-code interface
+- **Advanced Orchestration**: Better handling of complex branching logic and parallel processing
+- **Monitoring & Debugging**: Built-in workflow execution tracking and error visualization
+- **Retry Logic**: More sophisticated retry strategies with exponential backoff
+- **Multi-Provider Support**: Easy integration with multiple AI providers (OpenAI, Anthropic, etc.)
+- **Cost Optimization**: Implement provider fallback based on cost/availability
+- **A/B Testing**: Run multiple AI workflow variants for quality comparison
+
+**Proposed Architecture:**
+```
+Firestore Trigger → Cloud Function (lightweight) → n8n Webhook → OpenAI
+                                                              ↓
+                                                    Update Firestore
+```
+
+**Implementation Requirements:**
+
+1. **Infrastructure Setup**
+   - Deploy n8n instance (self-hosted or n8n Cloud)
+   - Configure HTTPS with SSL certificates
+   - Set up IP allowlisting for security
+   - Configure environment variables and secrets
+
+2. **Workflow Migration**
+   - Migrate `autoTranslateOrchestrator` logic to n8n workflow
+   - Migrate smart reply generation to n8n workflow
+   - Create webhook endpoints in n8n
+   - Update Cloud Functions to call n8n webhooks
+
+3. **Security Enhancements**
+   - Implement HMAC signature validation for webhook requests
+   - Store OpenAI API keys in n8n Credentials store
+   - Set up Firebase Admin SDK credentials in n8n
+   - Configure rate limiting and request validation
+
+4. **Monitoring & Operations**
+   - Set up workflow execution logging
+   - Configure error alerts and notifications
+   - Implement retry policies for failed nodes
+   - Create dashboards for workflow metrics
+
+5. **Testing & Migration Strategy**
+   - Run n8n workflows in parallel with existing Cloud Functions (A/B test)
+   - Compare performance, reliability, and cost
+   - Gradual rollout to percentage of users
+   - Full migration after validation
+
+**Estimated Effort:** 8-12 hours  
+**Priority:** Low (optimization, not required for Phase 2)  
+**Dependencies:** Phase 2 complete, cost analysis showing benefit
+
+**Cost Considerations:**
+- n8n Cloud: ~$20-50/month (or self-host for free)
+- Potential AI cost savings through better optimization: ~10-20%
+- Reduced Cloud Functions invocations: ~$5-10/month savings
+
+**When to Implement:**
+- After Phase 2 is complete and stable
+- When AI workflows become more complex (PRD 2.3+)
+- When cost optimization becomes critical (>$100/month AI costs)
+- When visual workflow management provides clear team value
+
+**Documentation Reference:**
+- Original specification: `planning/Phase 2 PRD.md` (section: "🌐 n8n Integration")
+
+---
+
 ## 🔄 Next Steps
 
 Upon completion of Sub-Phase 2.6:
@@ -469,6 +544,7 @@ Upon completion of Sub-Phase 2.6:
 - Gather user feedback on Phase 2 features
 - Plan Phase 3 (new persona or enhancements)
 - Continue cost monitoring and optimization
+- Consider n8n integration if AI workflows become complex or costly
 
 ---
 

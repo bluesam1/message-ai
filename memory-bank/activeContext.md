@@ -1,11 +1,11 @@
 # Active Context
 
 ## Current Status
-**Phase:** PRD 2.1 Complete ✅ - AI Foundation Features Deployed (Translation, Context, Slang)  
+**Phase:** PRD 2.2 Complete ✅ - Auto-Translation & Language Detection Deployed  
 **Date:** October 23, 2025  
 **Branch:** main  
-**App Status:** Production-ready MVP with full messaging + AI-powered translation, cultural context, and slang definitions  
-**Next:** PRD 2.2 - Auto-Translation & Language Detection
+**App Status:** Production-ready MVP with full messaging + AI-powered auto-translation, cultural context, slang definitions, and enhanced UI/UX  
+**Next:** PRD 2.3 - Smart Composition & AI Replies
 
 ## What Just Happened
 
@@ -154,6 +154,30 @@
 12. **Documentation:** Complete setup guide, user guide, and implementation status docs
 13. **Deployment:** All 3 Cloud Functions deployed and tested successfully
 
+### ✅ Completed (PRD 2.2 - Auto-Translation & Language Detection)
+1. **Language Detection:** OpenAI-powered automatic language detection for incoming messages
+2. **Auto-Translate Orchestrator:** Firestore-triggered Cloud Function for automatic translation workflow
+3. **User Preferred Language:** Profile-based language preferences with onboarding integration
+4. **Per-Conversation Preferences:** Auto-translate toggle and target language selection per chat
+5. **Translation UI:** Globe icon toggle with animation, translation badges, and feedback system
+6. **Cultural Context Enhancement:** Language-aware cultural explanations based on original message language
+7. **Offline Support:** SQLite storage for translations with offline access
+8. **Push Notification Translation:** Real-time translation for push notifications
+9. **Cloud Functions Refactoring:** Centralized utility functions for maintainability
+10. **UI/UX Improvements:** Simplified language selection, group info button repositioning, debug cleanup
+11. **Testing & Validation:** Comprehensive manual testing across multiple languages and scenarios
+12. **Documentation:** Updated AI features guide and implementation status
+
+### ✅ Recent UI/UX Enhancements (Post-PRD 2.2)
+1. **Modal Fixes:** Fixed Cultural Context and Slang Definition modals with simplified structure
+2. **Translation Preview:** Enhanced conversation list with SQLite-first translation previews
+3. **Pull-to-Refresh:** Added native pull-to-refresh functionality to conversations list
+4. **Group Info Button:** Repositioned group info button next to group name for better UX
+5. **Debug Cleanup:** Removed debug elements and test buttons from production UI
+6. **Manual Translation Removal:** Removed manual translation option from message menu (auto-translate handles this)
+7. **Enhanced Logging:** Added comprehensive debugging for translation preview issues
+8. **Performance Optimization:** SQLite-first approach for faster translation preview loading
+
 ### ✅ Completed (PRD 08 - Push Notifications)
 1. **expo-notifications Integration:** Full permission request and token management
 2. **Expo Push API Migration:** Switched from FCM to Expo Push API for better Expo Go compatibility
@@ -183,10 +207,10 @@
 4. ✅ Memory Bank updated
 
 #### Next Actions
-1. Begin PRD 2.2 - Auto-Translation & Language Detection
-2. Plan language detection workflow
-3. Implement auto-translate orchestration
-4. Add per-conversation language preferences
+1. Begin PRD 2.3 - Smart Composition & AI Replies
+2. Plan smart reply generation workflow
+3. Implement tone adjustment features
+4. Add message improvement suggestions
 
 ## Active Decisions
 

@@ -62,14 +62,14 @@ export function calculateCost(
 /**
  * Log token usage to Firestore for monitoring
  * @param userId - User ID
- * @param featureType - Type of AI feature (translate, explain, define)
+ * @param featureType - Type of AI feature (translate, explain, define, detect_language, auto_detect_language, auto_translate)
  * @param model - Model used
  * @param inputTokens - Number of input tokens
  * @param outputTokens - Number of output tokens
  */
 export async function logTokenUsage(
   userId: string,
-  featureType: 'translate' | 'explain' | 'define',
+  featureType: 'translate' | 'explain' | 'define' | 'detect_language' | 'auto_detect_language' | 'auto_translate',
   model: string,
   inputTokens: number,
   outputTokens: number

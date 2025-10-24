@@ -76,10 +76,14 @@ export async function sendMessage(
     console.log('[MessageService] Message saved to SQLite (optimistic):', messageId);
 
     // Step 2: Check if online
-    if (!networkService.isOnline()) {
+    const isOnline = networkService.isOnline();
+    console.log('[MessageService] Network status:', isOnline ? 'ONLINE' : 'OFFLINE');
+    
+    if (!isOnline) {
       // Offline: Add to queue and return with pending status
       console.log('[MessageService] Offline - adding message to queue:', messageId);
       await offlineQueueService.addToQueue(message);
+      console.log('[MessageService] Message added to offline queue successfully');
       return message; // Return with pending status
     }
 
@@ -102,9 +106,8 @@ export async function sendMessage(
     console.log('[MessageService] Message uploaded to Firestore:', messageId);
 
     // Step 5: Update conversation's last message
-    await conversationService.updateConversationLastMessage(
+    await conversationService.updateConversationLastMessageTime(
       conversationId,
-      text.trim(),
       timestamp
     );
 
@@ -151,9 +154,8 @@ export async function retryMessage(message: Message): Promise<Message> {
     await sqliteService.updateMessageStatus(message.id, 'sent');
 
     // Update conversation's last message
-    await conversationService.updateConversationLastMessage(
+    await conversationService.updateConversationLastMessageTime(
       message.conversationId,
-      message.text,
       message.timestamp
     );
 
@@ -231,6 +233,7 @@ export function listenToMessages(
           status: docData.status as MessageStatus,
           readBy: docData.readBy || [],
           createdAt: toMillis(docData.createdAt),
+          aiMeta: docData.aiMeta || undefined, // Include AI metadata if present
         };
 
         messages.push(message);

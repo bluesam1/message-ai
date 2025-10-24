@@ -1,7 +1,7 @@
 import { https } from 'firebase-functions/v2';
-import { createCompletion } from '../utils/openai';
+import { detectLanguage } from '../utils/languageDetection';
+import { translateText } from '../utils/translation';
 import { checkRateLimit } from '../utils/rateLimiter';
-import { logTokenUsage } from '../utils/costMonitoring';
 import {
   validateAuth,
   validateTextInput,
@@ -18,7 +18,7 @@ interface TranslateMessageRequest {
 
 interface TranslateMessageResponse {
   translatedText: string;
-  detectedLanguage?: string;
+  detectedLanguage: string;
   tokensUsed: number;
 }
 
@@ -47,36 +47,21 @@ export const translateMessage = https.onCall(
 
       console.log(`Translation request from ${userId}: ${text.length} chars to ${targetLanguage}`);
 
-      // Create OpenAI prompt
-      const systemPrompt = `You are a professional translator. Translate the given text to ${targetLanguage}. 
-Preserve the tone, style, and meaning of the original message. 
-If the text is already in ${targetLanguage}, return it unchanged.
-Only return the translated text, nothing else.`;
-
-      const userPrompt = text;
-
       try {
-        // Call OpenAI
-        const { text: translatedText, tokensUsed } = await createCompletion(
-          systemPrompt,
-          userPrompt
-        );
+        // First, detect the language
+        const detectedLanguage = await detectLanguage(text, userId);
+        console.log(`Detected language: ${detectedLanguage}`);
 
-        // Log token usage
-        await logTokenUsage(
-          userId,
-          'translate',
-          process.env.OPENAI_MODEL || 'gpt-4o-mini',
-          Math.floor(tokensUsed * 0.4), // Approximate input tokens (40%)
-          Math.floor(tokensUsed * 0.6)  // Approximate output tokens (60%)
-        );
+        // Then translate
+        const translatedText = await translateText(text, targetLanguage, detectedLanguage, userId);
 
         const response: TranslateMessageResponse = {
           translatedText: translatedText.trim(),
-          tokensUsed,
+          detectedLanguage: /^[a-z]{2}$/.test(detectedLanguage) ? detectedLanguage : 'unknown',
+          tokensUsed: 0, // Token usage is logged in utility functions
         };
 
-        console.log(`Translation completed: ${tokensUsed} tokens`);
+        console.log(`Translation completed successfully`);
 
         return response;
       } catch (error: any) {

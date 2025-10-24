@@ -153,6 +153,8 @@ async function syncMessage(
  * Implements exponential backoff for retries
  */
 export async function syncPendingMessages(): Promise<void> {
+  console.log('[Sync] syncPendingMessages called');
+  
   // Check if already syncing
   if (isSyncing) {
     console.log('[Sync] Sync already in progress, skipping');
@@ -160,7 +162,10 @@ export async function syncPendingMessages(): Promise<void> {
   }
 
   // Check if online
-  if (!networkService.isOnline()) {
+  const isOnline = networkService.isOnline();
+  console.log('[Sync] Network status:', isOnline ? 'ONLINE' : 'OFFLINE');
+  
+  if (!isOnline) {
     console.log('[Sync] Device is offline, skipping sync');
     return;
   }
@@ -282,8 +287,18 @@ export function isSyncInProgress(): boolean {
   return isSyncing;
 }
 
+/**
+ * Manual sync trigger for testing
+ * Can be called from anywhere to test the sync system
+ */
+export async function manualSync(): Promise<void> {
+  console.log('[Sync] Manual sync triggered');
+  await syncPendingMessages();
+}
+
 export default {
   syncPendingMessages,
+  manualSync,
   retryMessage,
   subscribeSyncProgress,
   isSyncInProgress,

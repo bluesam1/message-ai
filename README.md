@@ -1,6 +1,6 @@
 # MessageAI
 
-A real-time messaging application built with React Native (Expo) and Firebase. Features include one-on-one and group messaging, offline support, read receipts, presence indicators, image sharing, push notifications, and **AI-powered translation, cultural context, and slang definitions**.
+A real-time messaging application built with React Native (Expo) and Firebase. Features include one-on-one and group messaging, offline support, read receipts, presence indicators, image sharing, push notifications, and **AI-powered auto-translation, cultural context, and slang definitions**.
 
 ## 🚀 Quick Start
 
@@ -316,6 +316,21 @@ The following files contain secrets and are in `.gitignore`:
 
 **Status:** Deployed and working! All three Cloud Functions are live. Long-press any message to access AI features.
 
+### Phase 2.2 (Auto-Translation) - Complete ✅
+
+- ✅ **Auto-Translation**: Real-time automatic translation of incoming messages
+- ✅ **Language Detection**: Automatic detection of message languages using OpenAI
+- ✅ **User Preferences**: Per-user preferred language with profile integration
+- ✅ **Per-Conversation Settings**: Toggle auto-translate per conversation
+- ✅ **Translation UI**: Globe icon toggle with animation and visual feedback
+- ✅ **Offline Support**: SQLite storage for translations with offline access
+- ✅ **Push Notification Translation**: Real-time translation for push notifications
+- ✅ **Cultural Context Enhancement**: Language-aware cultural explanations
+- ✅ **Cloud Functions Refactoring**: Centralized utility functions for maintainability
+- ✅ **UI/UX Improvements**: Enhanced user experience with simplified interfaces
+
+**Status:** Deployed and working! Auto-translation is live with comprehensive UI/UX enhancements.
+
 ## 📝 Git Workflow
 
 1. Make changes
@@ -334,9 +349,43 @@ The following files contain secrets and are in `.gitignore`:
 
 MIT License - see the [LICENSE](LICENSE) file for details
 
-## 🤖 AI Features Setup (Phase 2.1) - DEPLOYED ✅
+## 🤖 AI Features (Phase 2.1 & 2.2) - DEPLOYED ✅
 
-The AI features are now fully deployed and integrated! Long-press any message in a conversation to:
+MessageAI now includes powerful AI-powered features:
+- **Auto-Translation** 🌐 - Automatically translate incoming messages in real-time (NEW!)
+- **Manual Translation** - Translate specific messages to your preferred language
+- **Explain Context** 💡 - Get cultural understanding and context
+- **Define Slang** 📖 - Understand unfamiliar terms and idioms
+
+### Auto-Translation (Phase 2.2)
+
+**What is it?**  
+Auto-translation automatically translates incoming messages based on your preferences. Enable it once, and all future messages in other languages are automatically translated!
+
+**How to use:**
+1. Open any conversation
+2. Tap the 🌐 globe icon in the header
+3. Toggle "Auto-Translate Messages" ON
+4. Select your target language (e.g., English)
+5. Tap "Save"
+
+**Features:**
+- ✅ Automatic language detection (< 1s)
+- ✅ Smart translation (only translates if needed)
+- ✅ Toggle to view original text
+- ✅ Rate translations with 👍/👎
+- ✅ Per-conversation settings
+- ✅ Real-time sync across devices
+- ✅ Visual indicator in header
+
+**Supported Languages:**  
+English, Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese, Arabic, Russian, Hindi, and more!
+
+For detailed documentation, see [**_docs/AI_FEATURES.md**](_docs/AI_FEATURES.md)
+
+### Manual Translation and Other Features
+
+Long-press any message in a conversation to:
 - **Translate** to your preferred language
 - **Explain Context** for cultural understanding
 - **Define Slang** for unfamiliar terms
@@ -358,7 +407,7 @@ If you're deploying to a new Firebase project, you'll need to configure the Open
 
 3. **Deploy AI Functions**
    ```bash
-   firebase deploy --only functions:translateMessage,functions:explainContext,functions:defineSlang
+   firebase deploy --only functions:translateMessage,functions:explainContext,functions:defineSlang,functions:detectLanguage,functions:autoTranslateOrchestrator
    ```
 
 ### Documentation
@@ -377,10 +426,11 @@ OPENAI_MODEL=gpt-4o-mini  # Optional: default is gpt-4o-mini
 
 ### Cost Estimates (gpt-4o-mini)
 
-- **Translation**: ~$0.00001 per message
+- **Manual Translation**: ~$0.00001 per message
+- **Auto-Translation**: ~$0.01-0.02 per message (includes detection + translation)
 - **Explanation**: ~$0.00002 per message
 - **Definition**: ~$0.00001 per message
-- **Caching**: Subsequent views are free
+- **Caching**: Subsequent views are free (auto-translated results cached)
 
 ## 🆘 Getting Help
 
@@ -391,13 +441,25 @@ OPENAI_MODEL=gpt-4o-mini  # Optional: default is gpt-4o-mini
 
 ## 🎉 Current Status
 
-**Phase:** PRD 2.1 Complete (AI Foundation Features)
+**Phase:** PRD 2.2 Complete (Auto-Translation & Language Detection)
 **Phase 1:** ✅ Complete (Full MVP with messaging, groups, presence, images, notifications)
-**Phase 2:** PRD 2.1 Complete - AI-powered translation, cultural context, and slang definitions deployed
-**Android:** ✅ Building and running with full functionality + AI features
+**Phase 2:** PRD 2.2 Complete - Auto-translation, language detection, cultural context, and enhanced UI/UX
+**Android:** ✅ Building and running with full functionality + AI features + auto-translation
 **iOS:** ✅ Working in Expo Go
 
 ### Latest Completed Features
+
+**PRD 2.2: Auto-Translation & Language Detection**
+- ✅ Automatic language detection using OpenAI
+- ✅ Real-time auto-translation orchestration with Firestore triggers
+- ✅ User preferred language integration with profile
+- ✅ Per-conversation auto-translate settings
+- ✅ Translation UI with globe icon toggle and animation
+- ✅ SQLite offline storage for translations
+- ✅ Real-time translation for push notifications
+- ✅ Language-aware cultural context explanations
+- ✅ Cloud Functions refactoring for maintainability
+- ✅ Enhanced UI/UX with pull-to-refresh, modal fixes, and performance optimizations
 
 **PRD 2.1: AI Foundation Features**
 - ✅ OpenAI integration with gpt-4o-mini
@@ -415,5 +477,5 @@ OPENAI_MODEL=gpt-4o-mini  # Optional: default is gpt-4o-mini
 - ✅ Deep linking and notification grouping
 - ✅ Authentication persistence
 
-Ready for PRD 2.2: Auto-Translation & Language Detection!
+Ready for PRD 2.3: Smart Composition & AI Replies!
 

@@ -1,10 +1,11 @@
 # AI Features User Guide
 
-MessageAI includes three AI-powered features to help you understand messages across languages and cultures:
+MessageAI includes powerful AI-powered features to help you understand messages across languages and cultures:
 
-1. **Translation** - Translate messages to your preferred language
-2. **Cultural Context** - Understand cultural nuances and references
-3. **Slang/Idiom Definitions** - Get explanations of unfamiliar expressions
+1. **Auto-Translation** - Automatically translate incoming messages (NEW!)
+2. **Manual Translation** - Translate specific messages on demand
+3. **Cultural Context** - Understand cultural nuances and references
+4. **Slang/Idiom Definitions** - Get explanations of unfamiliar expressions
 
 ## Overview
 
@@ -13,8 +14,79 @@ All AI features are:
 - ✅ **Cached** - Instant on repeated views
 - ✅ **Private** - Your messages stay secure
 - ✅ **Smart** - Powered by OpenAI GPT-4o-mini
+- ✅ **Multi-Device** - Settings sync across all your devices
 
-## Feature 1: Translation
+## Feature 1: Auto-Translation (PRD 2.2)
+
+### What is Auto-Translation?
+
+Auto-translation automatically translates incoming messages in real-time based on your preferences. Once enabled, you'll see messages in your target language without any manual action!
+
+### How to Enable
+
+1. Open any conversation
+2. Tap the **🌐 globe icon** in the header
+3. Toggle **"Auto-Translate Messages"** ON
+4. Select your **target language** (e.g., English)
+5. Tap **"Save"**
+
+That's it! Future messages will automatically translate.
+
+### Features
+
+- **Automatic Detection**: System detects the language of incoming messages
+- **Smart Translation**: Only translates if the message is in a different language
+- **Toggle View**: Tap any translated message to see the original text
+- **Feedback System**: Rate translations with 👍/👎 to help improve quality
+- **Per-Conversation**: Different translation settings for each chat
+- **Real-Time Sync**: Settings sync across all your devices instantly
+- **Visual Indicator**: Header shows "🌐 Translating to [Language]" when active
+
+### Status Badge
+
+Auto-translated messages show a **"🌐 Translated"** badge at the top. This helps you identify which messages were auto-translated.
+
+### Supported Languages
+
+English, Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese (Simplified), Arabic, Russian, Hindi, Dutch, Swedish, Polish, Turkish, Vietnamese, Thai, Indonesian, and more!
+
+### How It Works
+
+1. **Message Arrives**: Someone sends you a message
+2. **Language Detection**: System detects the language (< 1s)
+3. **Translation Decision**: If auto-translate is enabled AND the language differs from your target language, it translates
+4. **Display**: You see the translated version with the ability to view the original
+
+### Edge Cases
+
+- **Emoji-only messages**: Not translated (no text to translate)
+- **Very short messages**: May not translate reliably (< 3 words)
+- **Already in target language**: No translation needed
+- **Mixed languages**: Translates to the dominant language detected
+
+### Disabling Auto-Translation
+
+1. Tap the **🌐 globe icon** in the header
+2. Toggle **"Auto-Translate Messages"** OFF
+3. Tap **"Save"**
+
+Messages will appear in their original language going forward.
+
+### Tips
+
+- ✅ Enable auto-translate for international friends/groups
+- ✅ Use different languages for different conversations
+- ✅ Tap "Show original" to verify important translations
+- ✅ Rate translations to help improve quality
+- ✅ Settings persist across app restarts
+
+### Performance
+
+- **Language Detection**: < 1 second
+- **Auto-Translation**: < 3 seconds average
+- **Cost**: ~$0.01-0.02 per message (covered by the app)
+
+## Feature 2: Manual Translation
 
 ### How to Use
 

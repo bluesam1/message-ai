@@ -24,6 +24,8 @@ import { Conversation } from '../../types/message';
 import * as sqliteService from '../sqlite/sqliteService';
 import { getUserIdsByEmails } from '../../utils/userLookup';
 import { validateGroupName, validateMinimumParticipants } from '../../utils/groupValidation';
+import { ConversationWithParticipants } from '../../types/message';
+import { User } from '../../types/user';
 
 /**
  * Generate a unique conversation ID
@@ -96,7 +98,6 @@ async function findExistingConversation(
       groupName: docData.groupName || null,
       groupPhoto: docData.groupPhoto || null,
       createdBy: docData.createdBy || docData.participants[0],
-      lastMessage: docData.lastMessage || '',
       lastMessageTime: toMillis(docData.lastMessageTime),
       createdAt: toMillis(docData.createdAt),
       updatedAt: toMillis(docData.updatedAt),
@@ -142,7 +143,6 @@ async function createConversation(
       groupName: groupName || null,
       groupPhoto: null,
       createdBy: createdBy || sortedParticipants[0],
-      lastMessage: '',
       lastMessageTime: now,
       createdAt: now,
       updatedAt: now,
@@ -156,7 +156,6 @@ async function createConversation(
       groupName: groupName || null,
       groupPhoto: null,
       createdBy: createdBy || sortedParticipants[0],
-      lastMessage: '',
       lastMessageTime: Timestamp.fromMillis(now),
       createdAt: Timestamp.fromMillis(now),
       updatedAt: Timestamp.fromMillis(now),
@@ -241,7 +240,6 @@ export async function getConversationById(
       groupName: docData.groupName || null,
       groupPhoto: docData.groupPhoto || null,
       createdBy: docData.createdBy || docData.participants[0],
-      lastMessage: docData.lastMessage || '',
       lastMessageTime: toMillis(docData.lastMessageTime),
       createdAt: toMillis(docData.createdAt),
       updatedAt: toMillis(docData.updatedAt),
@@ -288,6 +286,8 @@ export async function getUserConversations(
     );
     
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      console.log(`[ConversationService] 🔄 Firestore listener triggered with ${querySnapshot.docs.length} conversations`);
+      
       const conversations: Conversation[] = [];
       
       for (const docSnapshot of querySnapshot.docs) {
@@ -299,11 +299,17 @@ export async function getUserConversations(
           groupName: docData.groupName || null,
           groupPhoto: docData.groupPhoto || null,
           createdBy: docData.createdBy || docData.participants[0],
-          lastMessage: docData.lastMessage || '',
-          lastMessageTime: docData.lastMessageTime?.toMillis() || Date.now(),
-          createdAt: docData.createdAt?.toMillis() || Date.now(),
-          updatedAt: docData.updatedAt?.toMillis() || Date.now(),
+          lastMessageTime: toMillis(docData.lastMessageTime),
+          createdAt: toMillis(docData.createdAt),
+          updatedAt: toMillis(docData.updatedAt),
+          aiPrefs: docData.aiPrefs || undefined, // Include AI preferences for auto-translate
         };
+        
+        console.log(`[ConversationService] 📋 Conversation ${conversation.id}:`, {
+          lastMessageTime: conversation.lastMessageTime,
+          timestamp: new Date(conversation.lastMessageTime).toISOString(),
+          participants: conversation.participants
+        });
         
         conversations.push(conversation);
         
@@ -311,7 +317,7 @@ export async function getUserConversations(
         await sqliteService.saveConversation(conversation);
       }
       
-      console.log(`[ConversationService] Received ${conversations.length} conversations from Firestore`);
+      console.log(`[ConversationService] ✅ Received ${conversations.length} conversations from Firestore`);
       
       // Call callback with updated data
       onUpdate(conversations);
@@ -325,42 +331,147 @@ export async function getUserConversations(
 }
 
 /**
- * Update conversation's last message
+ * Enrich conversations with user data for display
+ * Adds participant names, photos, and other user information
+ * 
+ * @param {Conversation[]} conversations - Array of conversations to enrich
+ * @returns {Promise<ConversationWithParticipants[]>} Enriched conversations
+ */
+export async function enrichConversationsWithUserData(
+  conversations: Conversation[],
+  currentUserId: string
+): Promise<ConversationWithParticipants[]> {
+  try {
+    console.log(`[ConversationService] 🔄 Enriching ${conversations.length} conversations with user data`);
+    
+    const enrichedConversations: ConversationWithParticipants[] = [];
+    
+    for (const conversation of conversations) {
+      try {
+        // Get user data for all participants
+        const participantUsers: User[] = [];
+        const participantNames: string[] = [];
+        const participantPhotoURLs: string[] = [];
+        
+        for (const participantId of conversation.participants) {
+          try {
+            const userRef = doc(db, 'users', participantId);
+            const userDoc = await getDoc(userRef);
+            
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              const user: User = {
+                uid: participantId,
+                email: userData.email || '',
+                displayName: userData.displayName || 'Unknown',
+                photoURL: userData.photoURL || null,
+                online: userData.online || false,
+                lastSeen: userData.lastSeen?.toMillis() || Date.now(),
+                createdAt: userData.createdAt?.toMillis() || Date.now(),
+                preferredLanguage: userData.preferredLanguage || 'en',
+              };
+              
+              participantUsers.push(user);
+              participantNames.push(user.displayName);
+              participantPhotoURLs.push(user.photoURL || '');
+            } else {
+              // Fallback for missing user data
+              participantNames.push('Unknown');
+              participantPhotoURLs.push('');
+            }
+          } catch (userError) {
+            console.error(`[ConversationService] Error fetching user ${participantId}:`, userError);
+            participantNames.push('Unknown');
+            participantPhotoURLs.push('');
+          }
+        }
+        
+        // Create enriched conversation
+        const enrichedConversation: ConversationWithParticipants = {
+          ...conversation,
+          participantNames,
+          participantPhotoURLs,
+        };
+        
+        // For direct conversations, identify the other participant
+        if (conversation.type === 'direct' && participantUsers.length === 2) {
+          // Find the other participant (not the current user)
+          const otherParticipant = participantUsers.find(user => user.uid !== currentUserId);
+          if (otherParticipant) {
+            enrichedConversation.otherParticipantId = otherParticipant.uid;
+            enrichedConversation.otherParticipantName = otherParticipant.displayName;
+            enrichedConversation.otherParticipantPhotoURL = otherParticipant.photoURL;
+          }
+        }
+        
+        enrichedConversations.push(enrichedConversation);
+        
+      } catch (conversationError) {
+        console.error(`[ConversationService] Error enriching conversation ${conversation.id}:`, conversationError);
+        // Add conversation without enrichment as fallback
+        enrichedConversations.push({
+          ...conversation,
+          participantNames: conversation.participants.map(() => 'Unknown'),
+          participantPhotoURLs: conversation.participants.map(() => ''),
+        });
+      }
+    }
+    
+    console.log(`[ConversationService] ✅ Enriched ${enrichedConversations.length} conversations`);
+    return enrichedConversations;
+    
+  } catch (error) {
+    console.error('[ConversationService] Error enriching conversations:', error);
+    // Return conversations without enrichment as fallback
+    return conversations.map(conv => ({
+      ...conv,
+      participantNames: conv.participants.map(() => 'Unknown'),
+      participantPhotoURLs: conv.participants.map(() => ''),
+    }));
+  }
+}
+
+/**
+ * Update conversation's last message time
  * Updates both Firestore and SQLite
  * 
  * @param {string} conversationId - Conversation ID
- * @param {string} lastMessage - Preview text of last message
  * @param {number} lastMessageTime - Timestamp of last message
  * @returns {Promise<void>}
  */
-export async function updateConversationLastMessage(
+export async function updateConversationLastMessageTime(
   conversationId: string,
-  lastMessage: string,
   lastMessageTime: number
 ): Promise<void> {
   try {
+    console.log(`[ConversationService] 🔄 Updating last message time for conversation ${conversationId}:`, {
+      lastMessageTime,
+      timestamp: new Date(lastMessageTime).toISOString()
+    });
+    
     // Update Firestore
     const conversationRef = doc(db, 'conversations', conversationId);
     await setDoc(
       conversationRef,
       {
-        lastMessage,
         lastMessageTime: Timestamp.fromMillis(lastMessageTime),
         updatedAt: Timestamp.fromMillis(Date.now()),
       },
       { merge: true }
     );
     
+    console.log(`[ConversationService] ✅ Firestore updated for conversation ${conversationId}`);
+    
     // Update SQLite
-    await sqliteService.updateConversationLastMessage(
+    await sqliteService.updateConversationLastMessageTime(
       conversationId,
-      lastMessage,
       lastMessageTime
     );
     
-    console.log(`[ConversationService] Updated last message for conversation ${conversationId}`);
+    console.log(`[ConversationService] ✅ SQLite updated for conversation ${conversationId}`);
+    console.log(`[ConversationService] ✅ Updated last message time for conversation ${conversationId}`);
   } catch (error) {
-    console.error('[ConversationService] Error updating conversation last message:', error);
+    console.error('[ConversationService] Error updating conversation last message time:', error);
     throw error;
   }
 }
@@ -517,7 +628,7 @@ export default {
   findOrCreateConversation,
   getConversationById,
   getUserConversations,
-  updateConversationLastMessage,
+  updateConversationLastMessageTime,
   deleteConversation,
   createGroup,
   addMembersToGroup,

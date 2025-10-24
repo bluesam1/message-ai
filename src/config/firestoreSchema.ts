@@ -36,6 +36,13 @@
  *   lastMessageTime: timestamp    // Firestore timestamp of the last message
  *   createdAt: timestamp          // Firestore timestamp when conversation was created
  *   updatedAt: timestamp          // Firestore timestamp when conversation was last updated
+ *   aiPrefs: {                    // AI preferences per user (added in PRD 2.2) - Map of userId to preferences
+ *     [userId: string]: {
+ *       targetLang: string,       // Target language for auto-translation (ISO 639-1 code, e.g., "en", "es", "fr")
+ *       autoTranslate: boolean,   // Enable/disable auto-translation for incoming messages
+ *       defaultTone?: string      // Default tone for AI replies (future feature in PRD 2.3)
+ *     }
+ *   }
  * }
  * 
  * Indexes:
@@ -95,12 +102,13 @@
  *   readBy: string[]                     // Array of user IDs who have read this message
  *   createdAt: timestamp                 // Firestore timestamp when message document was created
  *   aiMeta: {                            // AI-generated metadata (optional, added in PRD 2.1)
- *     detectedLang?: string,             // Detected language of the message
+ *     detectedLang?: string,             // Detected language of the message (ISO 639-1 code)
  *     translatedText?: {                 // Translations keyed by language code
  *       [lang: string]: string           // e.g., { "en": "Hello", "es": "Hola" }
  *     },
  *     explanation?: string,              // Cultural context explanation
- *     slangDefinition?: string           // Slang/idiom definition
+ *     slangDefinition?: string,          // Slang/idiom definition
+ *     feedback?: "positive" | "negative" // User rating of translation quality (added in PRD 2.2)
  *   }
  * }
  * 
@@ -143,7 +151,8 @@
  *       "en": "I'm good, thanks!"
  *     },
  *     explanation: "Common Spanish greeting response, informal and friendly.",
- *     slangDefinition: null
+ *     slangDefinition: null,
+ *     feedback: "positive"
  *   }
  * }
  */
@@ -209,6 +218,7 @@
  *   lastSeen: timestamp      // Last activity timestamp (updated when user goes offline)
  *   createdAt: timestamp     // Account creation timestamp
  *   expoPushTokens: string[] // Array of Expo push tokens for push notifications (multiple devices)
+ *   preferredLanguage: string // Preferred language for auto-translate (ISO 639-1 code, e.g., "en", "es", "zh"). Default: "en" (added in PRD 2.2)
  * }
  * 
  * Indexes:
