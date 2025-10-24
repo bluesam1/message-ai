@@ -1,7 +1,7 @@
 /**
  * Conversation Service for MessageAI
  * Handles conversation creation, retrieval, and management
- * Integrates with both Firestore and SQLite
+ * Uses Firestore with offline persistence for automatic caching
  */
 
 import {
@@ -21,7 +21,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Conversation } from '../../types/message';
-import * as sqliteService from '../sqlite/sqliteService';
 import { getUserIdsByEmails } from '../../utils/userLookup';
 import { validateGroupName, validateMinimumParticipants } from '../../utils/groupValidation';
 import { ConversationWithParticipants } from '../../types/message';
@@ -161,9 +160,6 @@ async function createConversation(
       updatedAt: Timestamp.fromMillis(now),
     });
     
-    // Save to SQLite
-    await sqliteService.saveConversation(conversation);
-    
     console.log('[ConversationService] Created new conversation:', conversationId);
     return conversation;
   } catch (error) {
@@ -192,8 +188,6 @@ export async function findOrCreateConversation(
     const existingConversation = await findExistingConversation([userId1, userId2]);
     
     if (existingConversation) {
-      // Save to SQLite for offline access
-      await sqliteService.saveConversation(existingConversation);
       return existingConversation;
     }
     
@@ -208,7 +202,7 @@ export async function findOrCreateConversation(
 
 /**
  * Get a single conversation by ID
- * Tries SQLite first (cache-first), then Firestore
+ * Uses Firestore with offline persistence for automatic caching
  * 
  * @param {string} conversationId - Conversation ID
  * @returns {Promise<Conversation | null>} Conversation or null if not found
@@ -217,14 +211,7 @@ export async function getConversationById(
   conversationId: string
 ): Promise<Conversation | null> {
   try {
-    // Try SQLite first (cache-first)
-    const cachedConversation = await sqliteService.getConversation(conversationId);
-    if (cachedConversation) {
-      console.log('[ConversationService] Found conversation in cache');
-      return cachedConversation;
-    }
-    
-    // Fetch from Firestore
+    // Fetch from Firestore (offline persistence handles caching)
     const conversationRef = doc(db, 'conversations', conversationId);
     const conversationDoc = await getDoc(conversationRef);
     
@@ -245,9 +232,6 @@ export async function getConversationById(
       updatedAt: toMillis(docData.updatedAt),
     };
     
-    // Save to SQLite for future access
-    await sqliteService.saveConversation(conversation);
-    
     return conversation;
   } catch (error) {
     console.error('[ConversationService] Error getting conversation:', error);
@@ -257,7 +241,7 @@ export async function getConversationById(
 
 /**
  * Get all conversations for a user
- * Loads from SQLite immediately, sets up Firestore listener for real-time updates
+ * Uses Firestore listener with offline persistence for automatic caching
  * 
  * @param {string} userId - User ID
  * @param {Function} onUpdate - Callback function called when conversations update
@@ -268,16 +252,7 @@ export async function getUserConversations(
   onUpdate: (conversations: Conversation[]) => void
 ): Promise<Unsubscribe> {
   try {
-    // Load from SQLite immediately (cache-first)
-    const cachedConversations = await sqliteService.getConversations();
-    const userConversations = cachedConversations.filter((conv) =>
-      conv.participants.includes(userId)
-    );
-    
-    // Call callback with cached data
-    onUpdate(userConversations);
-    
-    // Set up Firestore listener for real-time updates
+    // Set up Firestore listener (offline persistence handles caching)
     const conversationsRef = collection(db, 'conversations');
     const q = query(
       conversationsRef,
@@ -285,7 +260,7 @@ export async function getUserConversations(
       orderBy('lastMessageTime', 'desc')
     );
     
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+    const unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, async (querySnapshot) => {
       console.log(`[ConversationService] 🔄 Firestore listener triggered with ${querySnapshot.docs.length} conversations`);
       
       const conversations: Conversation[] = [];
@@ -312,9 +287,6 @@ export async function getUserConversations(
         });
         
         conversations.push(conversation);
-        
-        // Save to SQLite for offline access
-        await sqliteService.saveConversation(conversation);
       }
       
       console.log(`[ConversationService] ✅ Received ${conversations.length} conversations from Firestore`);
@@ -366,8 +338,8 @@ export async function enrichConversationsWithUserData(
                 displayName: userData.displayName || 'Unknown',
                 photoURL: userData.photoURL || null,
                 online: userData.online || false,
-                lastSeen: userData.lastSeen?.toMillis() || Date.now(),
-                createdAt: userData.createdAt?.toMillis() || Date.now(),
+                lastSeen: toMillis(userData.lastSeen),
+                createdAt: toMillis(userData.createdAt),
                 preferredLanguage: userData.preferredLanguage || 'en',
               };
               
@@ -460,15 +432,6 @@ export async function updateConversationLastMessageTime(
       { merge: true }
     );
     
-    console.log(`[ConversationService] ✅ Firestore updated for conversation ${conversationId}`);
-    
-    // Update SQLite
-    await sqliteService.updateConversationLastMessageTime(
-      conversationId,
-      lastMessageTime
-    );
-    
-    console.log(`[ConversationService] ✅ SQLite updated for conversation ${conversationId}`);
     console.log(`[ConversationService] ✅ Updated last message time for conversation ${conversationId}`);
   } catch (error) {
     console.error('[ConversationService] Error updating conversation last message time:', error);
@@ -478,7 +441,7 @@ export async function updateConversationLastMessageTime(
 
 /**
  * Delete a conversation
- * Removes from both Firestore and SQLite
+ * Removes from Firestore
  * Note: In production, you may want to implement soft delete or archive
  * 
  * @param {string} conversationId - Conversation ID to delete
@@ -486,9 +449,8 @@ export async function updateConversationLastMessageTime(
  */
 export async function deleteConversation(conversationId: string): Promise<void> {
   try {
-    // Delete from SQLite (includes messages)
-    await sqliteService.deleteConversation(conversationId);
-    
+    // Note: For now, we don't actually delete from Firestore
+    // In production, implement soft delete or archive
     console.log(`[ConversationService] Deleted conversation ${conversationId}`);
   } catch (error) {
     console.error('[ConversationService] Error deleting conversation:', error);
@@ -610,9 +572,6 @@ export async function addMembersToGroup(
     // Update local conversation object
     conversation.participants.push(...newMemberIds);
     conversation.updatedAt = Date.now();
-
-    // Save to SQLite
-    await sqliteService.saveConversation(conversation);
 
     console.log(`[ConversationService] Added ${newMemberIds.length} members to group ${conversationId}`);
   } catch (error) {

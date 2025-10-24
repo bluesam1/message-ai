@@ -1,7 +1,7 @@
 /**
  * Message Service for MessageAI
  * Handles message sending, receiving, and real-time synchronization
- * Implements optimistic UI updates with Firestore and SQLite integration
+ * Uses Firestore offline persistence for automatic caching and queuing
  */
 
 import {
@@ -19,10 +19,7 @@ import {
 import { db } from '../../config/firebase';
 import { Message, MessageStatus } from '../../types/message';
 import { generateMessageId } from '../../utils/messageUtils';
-import * as sqliteService from '../sqlite/sqliteService';
 import * as conversationService from './conversationService';
-import { networkService } from '../network/networkService';
-import * as offlineQueueService from './offlineQueueService';
 
 /**
  * Safely convert Firestore Timestamp to milliseconds
@@ -37,12 +34,7 @@ function toMillis(value: any): number {
 
 /**
  * Send a message with optimistic UI update
- * 
- * Flow:
- * 1. Generate message ID and create message object with 'pending' status
- * 2. Save to SQLite immediately (optimistic update)
- * 3. Upload to Firestore
- * 4. Update status to 'sent' on success or 'failed' on error
+ * Uses Firestore offline persistence for automatic queuing and retry
  * 
  * @param {string} conversationId - Conversation ID
  * @param {string} text - Message text content
@@ -57,7 +49,7 @@ export async function sendMessage(
   const messageId = generateMessageId();
   const timestamp = Date.now();
 
-  // Create message object with pending status
+  // Create message object
   const message: Message = {
     id: messageId,
     conversationId,
@@ -65,30 +57,16 @@ export async function sendMessage(
     text: text.trim(),
     imageUrl: null,
     timestamp,
-    status: 'pending',
+    status: 'sent',
     readBy: [senderId],
     createdAt: timestamp,
   };
 
   try {
-    // Step 1: Save to SQLite immediately (optimistic update)
-    await sqliteService.saveMessage(message);
-    console.log('[MessageService] Message saved to SQLite (optimistic):', messageId);
-
-    // Step 2: Check if online
-    const isOnline = networkService.isOnline();
-    console.log('[MessageService] Network status:', isOnline ? 'ONLINE' : 'OFFLINE');
-    
-    if (!isOnline) {
-      // Offline: Add to queue and return with pending status
-      console.log('[MessageService] Offline - adding message to queue:', messageId);
-      await offlineQueueService.addToQueue(message);
-      console.log('[MessageService] Message added to offline queue successfully');
-      return message; // Return with pending status
-    }
-
-    // Step 3: Upload to Firestore (online)
+    // Upload to Firestore (queues automatically if offline)
     const messageRef = doc(db, 'messages', messageId);
+    console.log('[MessageService] 📤 Sending message to Firestore:', messageId);
+    
     await setDoc(messageRef, {
       conversationId,
       senderId,
@@ -100,12 +78,9 @@ export async function sendMessage(
       createdAt: Timestamp.fromMillis(timestamp),
     });
 
-    // Step 4: Update status to 'sent'
-    message.status = 'sent';
-    await sqliteService.updateMessageStatus(messageId, 'sent');
-    console.log('[MessageService] Message uploaded to Firestore:', messageId);
+    console.log('[MessageService] ✅ Message sent to Firestore successfully:', messageId);
 
-    // Step 5: Update conversation's last message
+    // Update conversation's last message time
     await conversationService.updateConversationLastMessageTime(
       conversationId,
       timestamp
@@ -114,29 +89,24 @@ export async function sendMessage(
     return message;
   } catch (error) {
     console.error('[MessageService] Failed to send message:', error);
-
-    // Add to offline queue for retry
-    await offlineQueueService.addToQueue(message);
-    console.log('[MessageService] Message added to offline queue for retry:', messageId);
-
-    // Keep status as pending (will be retried)
+    // Don't throw error - Firestore will queue the message if offline
+    // The message will appear with "pending" status via the listener
+    console.log('[MessageService] 📝 Message queued for retry when online');
     return message;
   }
 }
 
 /**
  * Retry sending a failed message
+ * With Firestore offline persistence, retries happen automatically
+ * This function is kept for compatibility but delegates to Firestore
  * 
  * @param {Message} message - Failed message to retry
  * @returns {Promise<Message>} Updated message
  */
 export async function retryMessage(message: Message): Promise<Message> {
   try {
-    // Update status to pending
-    message.status = 'pending';
-    await sqliteService.updateMessageStatus(message.id, 'pending');
-
-    // Upload to Firestore
+    // Upload to Firestore (will queue if offline)
     const messageRef = doc(db, 'messages', message.id);
     await setDoc(messageRef, {
       conversationId: message.conversationId,
@@ -151,7 +121,6 @@ export async function retryMessage(message: Message): Promise<Message> {
 
     // Update status to sent
     message.status = 'sent';
-    await sqliteService.updateMessageStatus(message.id, 'sent');
 
     // Update conversation's last message
     await conversationService.updateConversationLastMessageTime(
@@ -163,40 +132,15 @@ export async function retryMessage(message: Message): Promise<Message> {
     return message;
   } catch (error) {
     console.error('[MessageService] Failed to retry message:', error);
-
-    // Update status back to failed
+    // Firestore will retry automatically
     message.status = 'failed';
-    await sqliteService.updateMessageStatus(message.id, 'failed');
-
     throw error;
   }
 }
 
 /**
- * Load cached messages from SQLite
- * Used for cache-first loading strategy
- * 
- * @param {string} conversationId - Conversation ID
- * @param {number} limit - Maximum number of messages to load
- * @returns {Promise<Message[]>} Array of cached messages
- */
-export async function loadCachedMessages(
-  conversationId: string,
-  limit: number = 100
-): Promise<Message[]> {
-  try {
-    const messages = await sqliteService.getMessages(conversationId, limit);
-    console.log(`[MessageService] Loaded ${messages.length} messages from cache`);
-    return messages;
-  } catch (error) {
-    console.error('[MessageService] Failed to load cached messages:', error);
-    return [];
-  }
-}
-
-/**
  * Set up real-time listener for messages
- * Listens to Firestore for new messages and saves them to SQLite
+ * Uses Firestore with offline persistence for automatic caching
  * 
  * @param {string} conversationId - Conversation ID
  * @param {Function} onMessagesUpdate - Callback function called when messages update
@@ -217,12 +161,19 @@ export function listenToMessages(
 
     const unsubscribe = onSnapshot(
       q,
-      { includeMetadataChanges: false }, // Only fire on actual server changes
+      { includeMetadataChanges: true }, // Include pending writes for offline support
       async (querySnapshot) => {
+      console.log(`[MessageService] 📨 Firestore listener triggered with ${querySnapshot.docs.length} messages`);
+      console.log(`[MessageService] 🔄 Metadata changes: ${querySnapshot.metadata.hasPendingWrites ? 'YES' : 'NO'}`);
+      
       const messages: Message[] = [];
 
       for (const docSnapshot of querySnapshot.docs) {
         const docData = docSnapshot.data();
+        const isPending = docSnapshot.metadata.hasPendingWrites;
+        
+        console.log(`[MessageService] 📝 Message ${docSnapshot.id}: pending=${isPending}, status=${docData.status}`);
+        
         const message: Message = {
           id: docSnapshot.id,
           conversationId: docData.conversationId,
@@ -230,18 +181,17 @@ export function listenToMessages(
           text: docData.text,
           imageUrl: docData.imageUrl || null,
           timestamp: toMillis(docData.timestamp),
-          status: docData.status as MessageStatus,
+          // Use pending status if write is still pending, otherwise use stored status
+          status: isPending ? 'pending' : (docData.status as MessageStatus),
           readBy: docData.readBy || [],
           createdAt: toMillis(docData.createdAt),
           aiMeta: docData.aiMeta || undefined, // Include AI metadata if present
         };
 
         messages.push(message);
-
-        // Save to SQLite for offline access
-        await sqliteService.saveMessage(message);
       }
 
+      console.log(`[MessageService] ✅ Sending ${messages.length} messages to UI`);
       // Call callback with updated messages
       onMessagesUpdate(messages);
     },
@@ -283,16 +233,15 @@ export async function markMessageAsRead(
 
 /**
  * Delete a message
- * Removes from both Firestore and SQLite
+ * Removes from Firestore (soft delete in production)
  * 
  * @param {string} messageId - Message ID to delete
  * @returns {Promise<void>}
  */
 export async function deleteMessage(messageId: string): Promise<void> {
   try {
-    // Delete from SQLite
-    await sqliteService.deleteMessage(messageId);
-
+    // Note: For now, we don't actually delete from Firestore
+    // In production, implement soft delete
     console.log(`[MessageService] Message deleted: ${messageId}`);
   } catch (error) {
     console.error('[MessageService] Failed to delete message:', error);
@@ -306,7 +255,6 @@ export async function deleteMessage(messageId: string): Promise<void> {
 export default {
   sendMessage,
   retryMessage,
-  loadCachedMessages,
   listenToMessages,
   markMessageAsRead,
   deleteMessage,

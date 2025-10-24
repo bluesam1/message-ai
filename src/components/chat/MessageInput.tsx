@@ -10,7 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
@@ -35,38 +34,38 @@ export default function MessageInput({
   placeholder = 'Type a message...',
 }: MessageInputProps) {
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
 
   /**
    * Check if send button should be enabled
    */
-  const canSend = text.trim().length > 0 && !sending && !disabled;
+  const canSend = text.trim().length > 0 && !disabled;
 
   /**
    * Handle send button press
+   * Optimized for offline support - always returns immediately
    */
   const handleSend = async () => {
     if (!canSend) return;
 
     const messageText = text.trim();
-    setSending(true);
+    
+    // Clear input immediately for better UX (optimistic update)
+    setText('');
 
     try {
-      // Clear input immediately for better UX
-      setText('');
-
-      // Send message
+      // Send message (returns immediately for offline support)
       await onSend(messageText);
+      
+      // Message is queued, no need to wait
+      console.log('[MessageInput] Message queued successfully');
     } catch (error) {
-      console.error('[MessageInput] Failed to send message:', error);
-
-      // Restore text on error
+      console.error('[MessageInput] Failed to queue message:', error);
+      
+      // Restore text on error (shouldn't happen with Firestore offline persistence)
       setText(messageText);
-
+      
       // Show error to user
-      alert('Failed to send message. Please try again.');
-    } finally {
-      setSending(false);
+      alert('Failed to queue message. Please try again.');
     }
   };
 
@@ -92,7 +91,7 @@ export default function MessageInput({
           onChangeText={handleTextChange}
           multiline
           maxLength={2000}
-          editable={!disabled && !sending}
+          editable={!disabled}
           returnKeyType="default"
         />
 
@@ -106,15 +105,11 @@ export default function MessageInput({
           disabled={!canSend}
           activeOpacity={0.7}
         >
-          {sending ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Ionicons
-              name="send"
-              size={20}
-              color={canSend ? '#FFFFFF' : '#C7C7CC'}
-            />
-          )}
+          <Ionicons
+            name="send"
+            size={20}
+            color={canSend ? '#FFFFFF' : '#C7C7CC'}
+          />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

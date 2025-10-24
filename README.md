@@ -1,6 +1,6 @@
 # MessageAI
 
-A real-time messaging application built with React Native (Expo) and Firebase. Features include one-on-one and group messaging, offline support, read receipts, presence indicators, image sharing, push notifications, and **AI-powered auto-translation, cultural context, and slang definitions**.
+A real-time messaging application built with React Native (Expo) and Firebase. Features include one-on-one and group messaging, **native Firestore offline support**, read receipts, presence indicators, image sharing, push notifications, and **AI-powered auto-translation, cultural context, and slang definitions**.
 
 ## 🚀 Quick Start
 
@@ -98,13 +98,13 @@ message-ai/
 ├── app/                    # Expo Router screens (to be implemented)
 ├── src/                    # Source code
 │   ├── config/
-│   │   └── firebase.ts     # Firebase initialization
+│   │   └── firebase.ts     # Firebase initialization (with offline persistence)
 │   ├── components/         # Reusable UI components
 │   ├── services/           # Business logic
 │   │   ├── firebase/       # Firebase services
-│   │   ├── sqlite/         # Local database
 │   │   ├── messaging/      # Messaging logic
-│   │   └── network/        # Network utilities
+│   │   ├── ai/             # AI features (translation, context, definitions)
+│   │   └── user/           # User services
 │   ├── utils/              # Helper functions
 │   ├── hooks/              # Custom React hooks
 │   ├── types/              # TypeScript definitions
@@ -276,21 +276,20 @@ The following files contain secrets and are in `.gitignore`:
 
 - **Framework:** React Native with Expo SDK 54.x
 - **Language:** TypeScript 5.x
-- **Backend:** Firebase (Auth, Firestore, Realtime Database, Storage, FCM)
-- **Local Database:** Expo SQLite 16.x
+- **Backend:** Firebase (Auth, Firestore with offline persistence, Realtime Database, Storage, FCM)
 - **Navigation:** Expo Router 6.x
 - **State Management:** React Context API
+- **AI Services:** OpenAI GPT-4 (translation, context, definitions)
 
 ## 📦 Key Dependencies
 
 - `expo` - Expo SDK
-- `firebase` - Firebase JavaScript SDK
+- `firebase` - Firebase JavaScript SDK (with offline persistence)
 - `expo-router` - File-based navigation
-- `expo-sqlite` - Local persistence
 - `expo-notifications` - Push notifications
 - `expo-image-picker` - Image selection
+- `@react-native-community/netinfo` - Network status monitoring
 - `expo-dev-client` - Development builds with native modules
-- `@react-native-community/netinfo` - Network status
 
 ## 🎯 Features
 
@@ -299,7 +298,7 @@ The following files contain secrets and are in `.gitignore`:
 - ✅ Project setup and infrastructure
 - ✅ Email/Password + Google authentication
 - ✅ One-on-one messaging
-- ✅ Offline support with sync
+- ✅ Firestore offline persistence (automatic caching + write queue)
 - ✅ Group chat
 - ✅ Read receipts and presence (RTDB-based)
 - ✅ Image sharing
@@ -323,9 +322,10 @@ The following files contain secrets and are in `.gitignore`:
 - ✅ **User Preferences**: Per-user preferred language with profile integration
 - ✅ **Per-Conversation Settings**: Toggle auto-translate per conversation
 - ✅ **Translation UI**: Globe icon toggle with animation and visual feedback
-- ✅ **Offline Support**: SQLite storage for translations with offline access
+- ✅ **Offline Support**: Firestore offline persistence for seamless offline access
 - ✅ **Push Notification Translation**: Real-time translation for push notifications
 - ✅ **Cultural Context Enhancement**: Language-aware cultural explanations
+- ✅ **Architecture Simplification**: Removed ~1000 lines of SQLite code, single source of truth
 - ✅ **Cloud Functions Refactoring**: Centralized utility functions for maintainability
 - ✅ **UI/UX Improvements**: Enhanced user experience with simplified interfaces
 
@@ -441,25 +441,30 @@ OPENAI_MODEL=gpt-4o-mini  # Optional: default is gpt-4o-mini
 
 ## 🎉 Current Status
 
-**Phase:** PRD 2.2 Complete (Auto-Translation & Language Detection)
+**Phase:** PRD 2.2 Complete (Auto-Translation & Language Detection + Architecture Simplification)
 **Phase 1:** ✅ Complete (Full MVP with messaging, groups, presence, images, notifications)
-**Phase 2:** PRD 2.2 Complete - Auto-translation, language detection, cultural context, and enhanced UI/UX
+**Phase 2:** PRD 2.2 Complete - Auto-translation, language detection, cultural context, simplified architecture
 **Android:** ✅ Building and running with full functionality + AI features + auto-translation
 **iOS:** ✅ Working in Expo Go
 
 ### Latest Completed Features
 
-**PRD 2.2: Auto-Translation & Language Detection**
+**PRD 2.2: Auto-Translation & Language Detection (October 23-24, 2025)**
 - ✅ Automatic language detection using OpenAI
 - ✅ Real-time auto-translation orchestration with Firestore triggers
 - ✅ User preferred language integration with profile
 - ✅ Per-conversation auto-translate settings
 - ✅ Translation UI with globe icon toggle and animation
-- ✅ SQLite offline storage for translations
+- ✅ Firestore offline persistence for seamless offline support
 - ✅ Real-time translation for push notifications
 - ✅ Language-aware cultural context explanations
 - ✅ Cloud Functions refactoring for maintainability
 - ✅ Enhanced UI/UX with pull-to-refresh, modal fixes, and performance optimizations
+- ✅ **Architecture Simplification**: Removed ~1000 lines of SQLite code
+  - Deleted: sqliteService, offlineQueueService, syncService, networkService
+  - Single source of truth: Firestore with native offline persistence
+  - Fixed all timestamp handling inconsistencies
+  - Simplified codebase for better maintainability
 
 **PRD 2.1: AI Foundation Features**
 - ✅ OpenAI integration with gpt-4o-mini

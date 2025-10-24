@@ -20,6 +20,17 @@ export interface LastMessagePreview {
 }
 
 /**
+ * Safely convert Firestore Timestamp to milliseconds
+ * Handles cases where value might already be a number or undefined
+ */
+function toMillis(value: any): number {
+  if (!value) return Date.now();
+  if (typeof value === 'number') return value;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  return Date.now();
+}
+
+/**
  * Get the latest message for a conversation with translation if needed
  * @param conversationId - Conversation ID
  * @param userId - Current user ID
@@ -57,7 +68,7 @@ export async function getLastMessagePreview(
     const messageData = messageDoc.data();
     
     const originalText = messageData.text;
-    const timestamp = messageData.timestamp?.toMillis() || Date.now();
+    const timestamp = toMillis(messageData.timestamp);
     const senderId = messageData.senderId;
     const senderName = messageData.senderName || 'Unknown';
     

@@ -15,7 +15,6 @@ import MessageInput from '../../src/components/chat/MessageInput';
 import OfflineBanner from '../../src/components/chat/OfflineBanner';
 import GroupInfo from '../../src/components/chat/GroupInfo';
 import PresenceIndicator from '../../src/components/users/PresenceIndicator';
-import { initDatabase } from '../../src/services/sqlite/sqliteService';
 import { useAIFeatures } from '../../src/hooks/useAIFeatures';
 import { MessageActions } from '../../src/components/chat/MessageActions';
 import { ContextExplanation } from '../../src/components/chat/ContextExplanation';
@@ -38,13 +37,6 @@ export default function ChatScreen() {
   
   // Rotation animation for the globe
   const rotateAnim = useRef(new Animated.Value(0)).current;
-
-  // Initialize database on mount
-  useEffect(() => {
-    initDatabase().catch((err) => {
-      console.error('[ChatScreen] Failed to initialize database:', err);
-    });
-  }, []);
 
   // Load user's preferred language
   useEffect(() => {

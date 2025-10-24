@@ -18,6 +18,16 @@ interface PresenceState {
 }
 
 /**
+ * Safely convert Firestore Timestamp to milliseconds
+ */
+function toMillis(value: any): number {
+  if (!value) return Date.now();
+  if (typeof value === 'number') return value;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  return Date.now();
+}
+
+/**
  * Hook to listen to user presence status
  * 
  * @param userId - ID of the user to track presence for
@@ -54,19 +64,7 @@ export function usePresence(userId: string | null | undefined): PresenceState {
           });
           
           const online = data.online || false;
-          
-          // Handle lastSeen - could be number or Firestore Timestamp
-          let lastSeen: number;
-          if (typeof data.lastSeen === 'number') {
-            lastSeen = data.lastSeen;
-          } else if (data.lastSeen && typeof data.lastSeen === 'object' && 'toMillis' in data.lastSeen) {
-            // Firestore Timestamp object
-            lastSeen = data.lastSeen.toMillis();
-            console.log('[usePresence] Converted Firestore Timestamp to:', lastSeen);
-          } else {
-            console.warn('[usePresence] Invalid lastSeen, using current time:', data.lastSeen);
-            lastSeen = Date.now();
-          }
+          const lastSeen = toMillis(data.lastSeen);
           
           console.log('[usePresence] Setting presence:', { online, lastSeen });
           setPresence({ online, lastSeen, loading: false });

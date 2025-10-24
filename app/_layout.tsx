@@ -11,9 +11,6 @@ import { useEffect } from 'react';
 import { useRouter, useSegments, Stack } from 'expo-router';
 import { LogBox } from 'react-native';
 import { AuthProvider, useAuth } from '../src/store/AuthContext';
-import { networkService } from '../src/services/network/networkService';
-import { syncPendingMessages } from '../src/services/messaging/syncService';
-import { initDatabase } from '../src/services/sqlite/sqliteService';
 import { useNotifications } from '../src/hooks/useNotifications';
 import { LoadingScreen } from '../src/components/LoadingScreen';
 
@@ -64,31 +61,9 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
-    // Initialize SQLite database as early as possible
-    initDatabase().catch((error) => {
-      console.error('Failed to initialize database:', error);
-    });
-
-    // Initialize network monitoring service
-    networkService.initialize();
-
-    // Subscribe to network changes and trigger sync when reconnected
-    const unsubscribe = networkService.subscribe((online) => {
-      console.log('[App] Network state changed:', online ? 'ONLINE' : 'OFFLINE');
-      if (online) {
-        console.log('[App] Triggering sync on reconnection...');
-        // Trigger sync when coming back online
-        syncPendingMessages().catch((error) => {
-          console.error('[App] Failed to sync on reconnection:', error);
-        });
-      }
-    });
-
-    // Cleanup on unmount
-    return () => {
-      unsubscribe();
-      networkService.cleanup();
-    };
+    // Firestore offline persistence is enabled in firebase.ts
+    // No need for custom SQLite or network monitoring
+    console.log('[App] Firestore offline persistence active');
   }, []);
 
   return (

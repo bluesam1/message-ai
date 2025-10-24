@@ -2,6 +2,7 @@
  * Read Receipt Service for MessageAI
  * Handles marking messages as read and tracking read status
  * Supports both one-on-one and group conversations
+ * Uses Firestore with offline persistence
  */
 
 import {
@@ -14,11 +15,10 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { sqliteService } from '../sqlite/sqliteService';
 
 /**
  * Mark multiple messages as read by a user
- * Updates both Firestore and local SQLite database
+ * Updates Firestore (queues automatically if offline)
  * 
  * @param messageIds - Array of message IDs to mark as read
  * @param userId - ID of the user marking messages as read
@@ -43,11 +43,8 @@ export async function markMessagesAsRead(
       });
     });
 
-    // Commit batch to Firestore
+    // Commit batch to Firestore (queues automatically if offline)
     await batch.commit();
-
-    // Update local SQLite database
-    await sqliteService.markMessagesAsRead(messageIds, userId);
 
     console.log(`[ReadReceipt] Marked ${messageIds.length} messages as read for user ${userId}`);
   } catch (error) {

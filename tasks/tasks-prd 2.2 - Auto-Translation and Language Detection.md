@@ -263,7 +263,79 @@ For sub-phase completion demonstration:
 
 ---
 
-**Status:** ✅ IMPLEMENTATION COMPLETE (Tasks 1-7) | 🚧 IN PROGRESS (Tasks 8-13 - Preferred Language)  
-**Deployment Date:** Tasks 1-7 deployed October 23, 2025  
-**Target Completion for Tasks 8-13:** TBD
+## 🚀 Task 14: Architecture Simplification - Remove SQLite Caching
+
+**Goal:** Replace custom SQLite caching with Firestore offline persistence to eliminate stale data bugs and simplify the codebase.
+
+**Duration:** ~6-8 hours  
+**Reference:** See `_docs/CACHE_STRATEGY_ANALYSIS.md` for detailed analysis
+
+- [ ] 14.0 Remove SQLite and Implement Firestore Offline Persistence
+  - [x] 14.1 Enable Firestore offline persistence in `src/config/firebase.ts`
+    - Import `initializeFirestore` and `persistentLocalCache`
+    - Replace `getFirestore(app)` with `initializeFirestore(app, { localCache: persistentLocalCache() })`
+    - Test that app still connects to Firestore
+  - [x] 14.2 Remove SQLite imports from all service files
+    - Update `src/hooks/useMessages.ts` - remove `loadCachedMessages` import and call
+    - Update `src/services/messaging/conversationService.ts` - remove all SQLite imports and calls
+    - Update `src/services/messaging/messageService.ts` - remove `sqliteService.saveMessage` calls
+    - Update `src/store/AuthContext.tsx` - remove SQLite cache clearing logic
+    - Update `app/_layout.tsx` - remove `initDatabase` import and call
+    - Update `app/new-chat.tsx` - remove `initDatabase` import and call
+    - Update `app/(tabs)/profile.tsx` - remove `offlineQueueService` import and usage
+  - [x] 14.3 Simplify message hooks (remove cache-first logic)
+    - In `useMessages.ts`: Remove "Step 1: Load cached messages" section
+    - Keep only "Step 2: Set up real-time listener"
+    - Remove temp message merging logic (Firestore handles optimistic updates)
+    - Simplify state management to single `messages` array
+  - [x] 14.4 Update message sending to use Firestore optimistic updates
+    - In `messageService.ts`: Remove manual pending message queue logic
+    - Let Firestore handle write queue automatically
+    - Use `SnapshotMetadata.hasPendingWrites` to show "Sending..." status if needed
+    - Remove custom status tracking ('pending', 'sent', 'failed') - use Firestore's built-in
+  - [x] 14.5 Simplify conversation service
+    - In `conversationService.ts`: Remove `getConversationById` SQLite check
+    - Remove `saveConversation` calls from listener
+    - Keep only Firestore queries and listeners
+    - Remove `getUserConversations` cache-first logic
+  - [x] 14.6 Delete SQLite service files
+    - Delete `src/services/sqlite/sqliteService.ts`
+    - Delete `src/services/messaging/offlineQueueService.ts`
+    - Delete `src/services/messaging/syncService.ts`
+    - Delete `src/services/network/networkService.ts` (if only used for sync)
+  - [x] 14.7 Remove SQLite dependency from package.json
+    - Run `npm uninstall expo-sqlite`
+    - Update `package.json` to remove expo-sqlite
+    - Run `npm install` to update lockfile
+  - [ ] 14.8 Test offline functionality
+    - Test sending message while offline (should queue automatically)
+    - Turn on airplane mode, send message, turn off airplane mode
+    - Verify message syncs automatically when online
+    - Test reading messages while offline (should load from Firestore cache)
+  - [ ] 14.9 Test message status indicators
+    - Verify messages show appropriate status while sending
+    - Use `onSnapshot` with `{ includeMetadataChanges: true }` if needed
+    - Check `snapshot.metadata.hasPendingWrites` for "Sending..." UI
+  - [ ] 14.10 Test conversation list offline
+    - Load app while offline
+    - Verify conversations load from Firestore cache
+    - Verify last messages display correctly
+  - [x] 14.11 Clean up unused code
+    - Remove any remaining SQLite-related imports
+    - Remove cache clearing logic from auth flow
+    - Search codebase for "sqlite" and remove references
+    - Removed "expo-sqlite" from app.json plugins
+  - [x] 14.12 Update documentation
+    - Update README.md to remove SQLite references
+    - Update memory bank to reflect new architecture
+    - Note in documentation that Firestore handles offline automatically
+
+---
+
+**Status:** ✅ COMPLETE (Tasks 1-14 Implementation) | 🧪 TESTING PENDING (14.8-14.10)  
+**Deployment Date:** Tasks 1-13 deployed October 23-24, 2025  
+**Task 14 Completion:** October 24, 2025 - SQLite fully removed, Firestore offline persistence enabled  
+**Code Removed:** ~1000+ lines (sqliteService, offlineQueue, syncService, networkService)  
+**Timestamp Handling:** Fixed all date/time inconsistencies with safe toMillis() helpers  
+**Next:** User testing (14.8-14.10) to verify offline functionality
 

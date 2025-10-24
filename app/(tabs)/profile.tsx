@@ -11,8 +11,6 @@ import { useAuth } from '../../src/store/AuthContext';
 import { LanguageSelector } from '../../src/components/chat/LanguageSelector';
 import { userPreferencesService } from '../../src/services/user/userPreferencesService';
 import { getLanguageName } from '../../src/services/ai/languageService';
-import { manualSync } from '../../src/services/messaging/syncService';
-import offlineQueueService from '../../src/services/messaging/offlineQueueService';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -21,7 +19,6 @@ export default function ProfileScreen() {
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [loadingLanguage, setLoadingLanguage] = useState(true);
   const [savingLanguage, setSavingLanguage] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
 
   // Load user's preferred language
   useEffect(() => {
@@ -39,41 +36,6 @@ export default function ProfileScreen() {
     };
     loadLanguage();
   }, [user?.uid]);
-
-  // Load pending message count
-  useEffect(() => {
-    const loadPendingCount = async () => {
-      try {
-        const count = await offlineQueueService.getPendingCount();
-        setPendingCount(count);
-      } catch (error) {
-        console.error('[Profile] Error loading pending count:', error);
-      }
-    };
-    loadPendingCount();
-  }, []);
-
-  const handleManualSync = async () => {
-    try {
-      console.log('[Profile] Manual sync triggered');
-      await manualSync();
-      Alert.alert('Sync', 'Manual sync completed');
-    } catch (error) {
-      console.error('[Profile] Manual sync failed:', error);
-      Alert.alert('Sync Error', 'Manual sync failed');
-    }
-  };
-
-  const handleCheckPending = async () => {
-    try {
-      const count = await offlineQueueService.getPendingCount();
-      const messages = await offlineQueueService.getPendingMessages();
-      Alert.alert('Pending Messages', `Count: ${count}\nMessages: ${JSON.stringify(messages, null, 2)}`);
-    } catch (error) {
-      console.error('[Profile] Error checking pending:', error);
-      Alert.alert('Error', 'Failed to check pending messages');
-    }
-  };
 
 
   const handleLanguageSelect = async (languageCode: string) => {
@@ -159,21 +121,6 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
-      </View>
-
-      {/* Debug Section */}
-      <View style={styles.debugSection}>
-        <Text style={styles.debugTitle}>Debug Tools</Text>
-        <Text style={styles.debugText}>Pending Messages: {pendingCount}</Text>
-        
-        <TouchableOpacity style={styles.debugButton} onPress={handleManualSync}>
-          <Text style={styles.debugButtonText}>Manual Sync</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.debugButton} onPress={handleCheckPending}>
-          <Text style={styles.debugButtonText}>Check Pending</Text>
-        </TouchableOpacity>
-        
       </View>
 
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
@@ -278,39 +225,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  debugSection: {
-    marginTop: 20,
-    marginBottom: 20,
-    padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  debugTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  debugText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-  },
-  debugButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  debugButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
   },
 });
 

@@ -343,6 +343,81 @@ For sub-phase completion, demonstrate:
 
 ---
 
+## 🚀 Architecture Simplification: Remove SQLite Caching
+
+### Objective
+Replace custom SQLite caching strategy with Firestore's built-in offline persistence to simplify the codebase, eliminate stale data issues, and reduce maintenance burden.
+
+### Problem Statement
+Current implementation uses SQLite for:
+1. Caching messages and conversations (cache-first loading)
+2. Offline message queue (pending messages)
+3. Manual sync logic
+
+This has caused:
+- Stale data bugs (conversations showing wrong last message)
+- Complex state management (cached + live + temp messages)
+- Schema migration challenges
+- ~1000+ lines of code to maintain
+
+### Solution
+Use **Firestore Offline Persistence** for everything:
+- Firestore automatically caches queries locally
+- Firestore automatically queues writes when offline
+- Firestore automatically syncs when network returns
+- No manual queue or sync logic needed
+
+### Technical Implementation
+
+**Enable Firestore Offline Persistence:**
+```typescript
+// In src/config/firebase.ts
+import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
+
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache(),
+});
+```
+
+**How Firestore Handles Offline:**
+1. **Reads:** Firestore caches query results automatically
+2. **Writes:** Firestore queues writes locally, syncs when online
+3. **Status:** Use `SnapshotMetadata.hasPendingWrites` to show "Sending..." status
+4. **Retries:** Firestore handles retries with exponential backoff
+5. **Conflicts:** Firestore resolves conflicts intelligently
+
+### Code Removal
+- Remove `src/services/sqlite/sqliteService.ts` (~632 lines)
+- Remove `src/services/messaging/offlineQueueService.ts` (~100 lines)
+- Remove `src/services/messaging/syncService.ts` (~80 lines)
+- Remove cache-first loading logic from hooks (~200 lines)
+- **Total: ~1000+ lines removed**
+
+### Benefits
+- ✅ Eliminate stale data bugs
+- ✅ Simpler codebase (single source of truth)
+- ✅ No schema migrations
+- ✅ Better offline support (Firestore's queue is more robust)
+- ✅ Automatic sync (no manual sync service)
+- ✅ Fewer bugs (no cache invalidation logic)
+
+### Migration Steps
+1. Enable Firestore offline persistence
+2. Remove SQLite imports from all services
+3. Remove cache-first logic from hooks
+4. Simplify message sending (no manual queue)
+5. Remove cache clearing from auth logic
+6. Delete SQLite service files
+7. Remove expo-sqlite dependency
+8. Test offline message sending/reading
+9. Test sync when back online
+
+### References
+- See `_docs/CACHE_STRATEGY_ANALYSIS.md` for detailed analysis
+- Firestore Offline Persistence: https://firebase.google.com/docs/firestore/manage-data/enable-offline
+
+---
+
 ## 🔄 Next Steps
 
 Upon completion of Sub-Phase 2.2:
@@ -352,19 +427,23 @@ Upon completion of Sub-Phase 2.2:
 
 ---
 
-**Status:** ✅ COMPLETE - All features implemented and deployed
+**Status:** ✅ COMPLETE - All features implemented and deployed  
 **Assigned To:** Completed  
-**Target Completion:** October 23, 2025
+**Completion Date:** October 23-24, 2025
 
 ---
 
 ## 📝 Recent Updates
 
-**2025-10-23:** Added Feature 4A (User Preferred Language) including:
-- Language selection during sign-up
-- Settings screen for changing preferred language
-- Lazy migration for existing users
-- Auto-translate defaults to user's preferred language
+**2025-10-24:** Architecture Simplification (Task 14) - COMPLETE:
+- ✅ Removed all SQLite dependencies (~1000+ lines of code)
+- ✅ Enabled Firestore offline persistence (native caching + write queue)
+- ✅ Deleted: sqliteService, offlineQueueService, syncService, networkService
+- ✅ Simplified message hooks and conversation service
+- ✅ Fixed all timestamp handling inconsistencies with safe helpers
+- ✅ Updated 13 files to remove SQLite references
+- ✅ Removed expo-sqlite dependency and plugin
+- ✅ Single source of truth: Firestore with automatic offline support
 
 **2025-10-23:** Additional Features Implemented:
 - ✅ User preferred language integration with auto-translate
@@ -374,7 +453,6 @@ Upon completion of Sub-Phase 2.2:
 - ✅ Cultural context explanation with language-aware prompts
 - ✅ Simplified language selection (bottom sheet modal)
 - ✅ Translation preview in conversation list
-- ✅ SQLite offline storage for translations
 - ✅ Real-time translation for push notifications
 - ✅ Cloud Functions refactoring for maintainability
 - ✅ Group info button repositioned next to group name

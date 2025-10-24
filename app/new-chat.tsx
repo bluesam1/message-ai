@@ -11,21 +11,11 @@ import UserPicker from '../src/components/users/UserPicker';
 import GroupCreation from '../src/components/chat/GroupCreation';
 import { User } from '../src/types/user';
 import { findOrCreateConversation } from '../src/services/messaging/conversationService';
-import { initDatabase } from '../src/services/sqlite/sqliteService';
 
 export default function NewChatScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams();
   const [isGroup, setIsGroup] = useState(params.type === 'group');
-
-  /**
-   * Initialize database on mount
-   */
-  useEffect(() => {
-    initDatabase().catch((err) => {
-      console.error('[NewChat] Failed to initialize database:', err);
-    });
-  }, []);
 
   /**
    * Handle user selection for individual chat

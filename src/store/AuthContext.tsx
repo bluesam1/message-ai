@@ -90,35 +90,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const isDifferentUser = currentUserId && newUserId && currentUserId !== newUserId;
       
       if (isDifferentUser) {
-        console.log('[AuthContext] Different user detected, clearing cache before login');
-        try {
-          const { clearAllData, closeDatabase } = await import('../services/sqlite/sqliteService');
-          await closeDatabase();
-          await clearAllData();
-          console.log('[AuthContext] Cache cleared for different user');
-        } catch (cacheError) {
-          console.warn('[AuthContext] Failed to clear cache for different user (non-critical):', cacheError);
-        }
+        console.log('[AuthContext] Different user detected');
+        // Firestore offline persistence handles cache automatically per user
       }
       
       if (authUser) {
         // User is authenticated, store in AsyncStorage
         await authPersistenceService.storeAuthData(authUser);
       } else {
-        // User is not authenticated, clear stored data and cache
+        // User is not authenticated, clear stored data
         await authPersistenceService.clearAuthData();
         
-        // Clear SQLite cache on logout
         if (currentUserId) {
-          console.log('[AuthContext] User logged out, clearing cache');
-          try {
-            const { clearAllData, closeDatabase } = await import('../services/sqlite/sqliteService');
-            await closeDatabase();
-            await clearAllData();
-            console.log('[AuthContext] Cache cleared on logout');
-          } catch (cacheError) {
-            console.warn('[AuthContext] Failed to clear cache on logout (non-critical):', cacheError);
-          }
+          console.log('[AuthContext] User logged out');
+          // Firestore offline persistence handles cache automatically
         }
       }
       
@@ -240,21 +225,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('[AuthContext] Step 4: Clearing stored auth data');
         await authPersistenceService.clearAuthData();
         
-        // 5. FIFTH: Clear SQLite cache and close database
-        console.log('[AuthContext] Step 5: Clearing SQLite cache');
-        try {
-          const { clearAllData, closeDatabase } = await import('../services/sqlite/sqliteService');
-          await closeDatabase();
-          await clearAllData();
-          console.log('[AuthContext] SQLite cache cleared successfully');
-        } catch (cacheError) {
-          console.warn('[AuthContext] Failed to clear SQLite cache (non-critical):', cacheError);
-        }
-        
-        // 6. SIXTH: Sign out from Firebase Auth
-        console.log('[AuthContext] Step 6: Signing out from Firebase Auth');
+        // 5. FIFTH: Sign out from Firebase Auth
+        console.log('[AuthContext] Step 5: Signing out from Firebase Auth');
         await authService.signOut(user.uid);
         console.log('[AuthContext] Logout sequence complete');
+        // Firestore offline persistence handles cache automatically
       } else {
         console.log('[AuthContext] No user to sign out');
       }

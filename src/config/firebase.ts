@@ -13,7 +13,7 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getDatabase } from 'firebase/database';
 
@@ -64,7 +64,19 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 // Initialize Firebase services
 // Auth persistence is handled automatically by Firebase for React Native
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Initialize Firestore with offline persistence
+// This enables automatic caching and offline writes queuing
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache(),
+});
+
+// Log Firestore initialization
+if (__DEV__) {
+  console.log('✅ Firestore initialized with offline persistence');
+  console.log('📦 Local cache enabled for offline support');
+}
+
 export const storage = getStorage(app);
 
 // Initialize Realtime Database for presence tracking

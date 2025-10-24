@@ -2,11 +2,11 @@
 
 ## Overall Status
 
-**Current Phase:** PRD 2.2 Complete ✅ - Auto-Translation & Language Detection Deployed  
-**Started:** October 21, 2025 (Phase 1) | October 23, 2025 (Phase 2)  
+**Current Phase:** PRD 2.2 Complete ✅ - Auto-Translation & Architecture Simplification  
+**Started:** October 21, 2025 (Phase 1) | October 23-24, 2025 (Phase 2)  
 **Phase 1 Status:** Complete (8 PRDs, full MVP with messaging + notifications)  
-**Phase 2 Status:** PRD 2.2 Complete (Auto-Translation, Language Detection, Cultural Context, Enhanced UI/UX)  
-**Estimated Progress:** Phase 1: 100% | Phase 2: ~40% (2/6 PRDs complete + significant UI/UX enhancements)
+**Phase 2 Status:** PRD 2.2 Complete (Auto-Translation, Language Detection, Architecture Simplification)  
+**Estimated Progress:** Phase 1: 100% | Phase 2: ~40% (2/6 PRDs complete + major architecture improvements)
 
 ---
 
@@ -735,7 +735,7 @@ npm start
 ### PRD 2.2: Auto-Translation & Language Detection (100% Complete) ✅
 **Timeline:** 8-10 hours  
 **Status:** COMPLETE  
-**Completed:** October 23, 2025
+**Completed:** October 23-24, 2025
 
 **Key Features Implemented:**
 - ✅ Automatic language detection using OpenAI
@@ -744,19 +744,30 @@ npm start
 - ✅ User preferred language integration
 - ✅ Translation toggle with globe icon animation
 - ✅ Cultural context with language-aware prompts
-- ✅ SQLite offline storage for translations
+- ✅ Firestore offline persistence (native support)
 - ✅ Real-time translation for push notifications
 - ✅ Cloud Functions refactoring for maintainability
 - ✅ UI/UX improvements and cleanup
 
 **Recent Enhancements (Post-PRD 2.2):**
 - ✅ Fixed Cultural Context and Slang Definition modals
-- ✅ Enhanced translation preview in conversations list
+- ✅ Real-time last message fetching with translations
 - ✅ Added pull-to-refresh functionality
 - ✅ Repositioned group info button for better UX
 - ✅ Removed debug elements and test buttons
 - ✅ Removed manual translation option (auto-translate handles this)
-- ✅ Performance optimization with SQLite-first approach
+- ✅ Dynamic new-chat screen with individual/group toggle
+- ✅ Floating action button for new chats
+
+**Architecture Simplification (Task 14):**
+- ✅ Removed ~1000 lines of SQLite caching code
+- ✅ Deleted 4 service files (sqliteService, offlineQueueService, syncService, networkService)
+- ✅ Enabled Firestore offline persistence with persistentLocalCache()
+- ✅ Single source of truth: Firestore handles all data, caching, and offline queuing
+- ✅ Fixed all timestamp handling inconsistencies with safe toMillis() helpers
+- ✅ Updated 13 files to remove SQLite references
+- ✅ Removed expo-sqlite dependency and plugin
+- ✅ Simplified architecture for better maintainability
 
 ### PRD 2.3: Smart Composition & AI Replies (Planned)
 **Timeline:** 10-12 hours  
