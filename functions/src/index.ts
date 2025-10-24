@@ -9,9 +9,13 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { Expo, ExpoPushMessage } from 'expo-server-sdk';
+import { detectLanguage } from './utils/languageDetection';
+import { translateText } from './utils/translation';
 
 // Initialize Firebase Admin
 admin.initializeApp();
+
+// OpenAI initialization is now handled by utility functions
 
 // Initialize Expo SDK with access token (optional but recommended for production)
 // Get access token from: https://expo.dev/accounts/[account]/settings/access-tokens
@@ -182,60 +186,203 @@ export const sendPushNotification = functions.firestore
       const senderDoc = await admin.firestore().doc(`users/${senderId}`).get();
       const senderName = senderDoc.exists ? senderDoc.data()!.displayName : 'Unknown User';
       
-      // Format notification title and body
-      let title: string;
-      let body: string;
+      // Get conversation AI preferences for translation
+      const aiPrefs = conversation.aiPrefs || {};
       
-      if (type === 'group') {
-        title = `${groupName}`;
-        if (imageUrl) {
-          body = `${senderName} sent an image`;
-        } else {
-          body = `${senderName}: ${text}`;
-        }
-      } else {
-        title = senderName;
-        if (imageUrl) {
-          body = '📷 Sent an image';
-        } else {
-          body = text;
+      // Detect message language if text exists and recipients need translation
+      let detectedLang: string | undefined;
+      const recipientsNeedingTranslation = recipients.filter((recipientId: string) => {
+        const recipientPrefs = aiPrefs[recipientId];
+        return recipientPrefs?.autoTranslate && recipientPrefs?.targetLang && !imageUrl;
+      });
+      
+      // Translate inline for recipients who need it (if not already translated)
+      const translationCache: { [lang: string]: string } = {};
+      
+      if (text && recipientsNeedingTranslation.length > 0) {
+        try {
+          // Check if we already have translations in aiMeta
+          const existingTranslations: { [lang: string]: string } = message.aiMeta?.translatedText || {};
+          detectedLang = message.aiMeta?.detectedLang;
+          
+          // Detect language if not already detected
+          if (!detectedLang) {
+            detectedLang = await detectLanguage(text, senderId);
+            console.log(`[Cloud Function] Detected language: ${detectedLang}`);
+          }
+          
+          // Translate for each unique target language needed
+          const uniqueTargetLangs = new Set<string>(
+            recipientsNeedingTranslation
+              .map((recipientId: string) => aiPrefs[recipientId]?.targetLang)
+              .filter((lang: string | undefined): lang is string => lang !== undefined && lang !== detectedLang)
+          );
+          
+          for (const targetLang of uniqueTargetLangs) {
+            
+            // Check if translation already exists
+            if (existingTranslations[targetLang]) {
+              translationCache[targetLang] = existingTranslations[targetLang];
+              console.log(`[Cloud Function] Using existing translation for ${targetLang}`);
+              continue;
+            }
+            
+            // Translate
+            try {
+              const translatedText = await translateText(text, targetLang, detectedLang, senderId);
+              translationCache[targetLang] = translatedText;
+              console.log(`[Cloud Function] Translated to ${targetLang}: "${translatedText}"`);
+            } catch (translateError) {
+              console.error(`[Cloud Function] Error translating to ${targetLang}:`, translateError);
+              // Use original text as fallback
+              translationCache[targetLang] = text;
+            }
+          }
+        } catch (error) {
+          console.error('[Cloud Function] Error in translation process:', error);
+          // Continue with original text
         }
       }
       
-      // Truncate body if too long
-      if (body.length > 100) {
-        body = body.substring(0, 97) + '...';
+      // Create personalized notifications for each recipient based on their auto-translate preferences
+      const recipientNotifications: Array<{ userId: string; tokens: string[]; title: string; body: string }> = [];
+      
+      for (const recipientId of recipients) {
+        const recipientTokens = userTokensMap[recipientId] || [];
+        if (recipientTokens.length === 0) continue;
+        
+        // Check if recipient has auto-translate enabled
+        const recipientPrefs = aiPrefs[recipientId];
+        const hasAutoTranslate = recipientPrefs?.autoTranslate;
+        const targetLang = recipientPrefs?.targetLang;
+        
+        // Determine message text to use
+        let messageText = text;
+        
+        // If recipient has auto-translate enabled, use translated text
+        if (hasAutoTranslate && targetLang && !imageUrl) {
+          // Use translated text from cache or existing aiMeta
+          if (translationCache[targetLang]) {
+            messageText = translationCache[targetLang];
+            console.log(`[Cloud Function] Using translated notification for ${recipientId} (${targetLang}): "${messageText}"`);
+          } else if (message.aiMeta?.translatedText?.[targetLang]) {
+            messageText = message.aiMeta.translatedText[targetLang];
+            console.log(`[Cloud Function] Using existing translated text for ${recipientId} (${targetLang}): "${messageText}"`);
+          }
+        }
+        
+        // Format notification title and body
+        let title: string;
+        let body: string;
+        
+        if (type === 'group') {
+          title = `${groupName}`;
+          if (imageUrl) {
+            body = `${senderName} sent an image`;
+          } else {
+            body = `${senderName}: ${messageText}`;
+          }
+        } else {
+          title = senderName;
+          if (imageUrl) {
+            body = '📷 Sent an image';
+          } else {
+            body = messageText;
+          }
+        }
+        
+        // Truncate body if too long
+        if (body.length > 100) {
+          body = body.substring(0, 97) + '...';
+        }
+        
+        recipientNotifications.push({
+          userId: recipientId,
+          tokens: recipientTokens,
+          title,
+          body,
+        });
       }
       
-      console.log(`[Cloud Function] Notification: "${title}" - "${body}"`);
+      console.log(`[Cloud Function] Prepared ${recipientNotifications.length} personalized notifications`);
       
-      // Filter out invalid Expo push tokens
-      const validTokens = allTokens.filter(token => Expo.isExpoPushToken(token));
+      // Update conversation document with translated lastMessage for each recipient
+      if (Object.keys(translationCache).length > 0) {
+        try {
+          console.log(`[Cloud Function] Updating conversation document with translations...`);
+          
+          // Get the conversation document
+          const conversationRef = admin.firestore().doc(`conversations/${conversationId}`);
+          const conversationDoc = await conversationRef.get();
+          
+          if (conversationDoc.exists) {
+            const conversationData = conversationDoc.data();
+            const participants = conversationData?.participants || [];
+            
+            // Update lastMessage for each participant based on their language preference
+            const updates: { [userId: string]: string } = {};
+            
+            for (const participantId of participants) {
+              const userPrefs = aiPrefs[participantId];
+              if (userPrefs?.autoTranslate && userPrefs.targetLang) {
+                const translatedText = translationCache[userPrefs.targetLang];
+                if (translatedText) {
+                  updates[participantId] = translatedText;
+                  console.log(`[Cloud Function] Will update lastMessage for ${participantId} with translation to ${userPrefs.targetLang}`);
+                }
+              }
+            }
+            
+            // Update the conversation document with personalized lastMessage
+            if (Object.keys(updates).length > 0) {
+              await conversationRef.update({
+                'lastMessage': text, // Keep original as default
+                'lastMessageTranslations': updates, // Store personalized translations
+                'updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+              });
+              console.log(`[Cloud Function] Updated conversation with personalized translations for ${Object.keys(updates).length} participants`);
+            }
+          }
+        } catch (updateError) {
+          console.error(`[Cloud Function] Error updating conversation document:`, updateError);
+          // Don't throw - continue with notifications
+        }
+      }
       
-      if (validTokens.length === 0) {
+      // Filter and create Expo push messages
+      const messages: ExpoPushMessage[] = [];
+      const tokenToUserMap: { [token: string]: string } = {}; // Map tokens to user IDs for cleanup
+      
+      for (const notification of recipientNotifications) {
+        const validTokens = notification.tokens.filter(token => Expo.isExpoPushToken(token));
+        
+        for (const token of validTokens) {
+          tokenToUserMap[token] = notification.userId;
+          messages.push({
+            to: token,
+            sound: 'default',
+            title: notification.title,
+            body: notification.body,
+            data: {
+              conversationId: conversationId || '',
+              messageId: messageId || '',
+              senderName: message.senderName || senderName || 'Unknown',
+              messageType: message.imageUrl ? 'image' : 'text',
+              type: 'new_message',
+            },
+            channelId: 'messages', // Android notification channel
+            priority: 'high',
+            badge: 1, // iOS badge count
+          });
+        }
+      }
+      
+      if (messages.length === 0) {
         console.log(`[Cloud Function] No valid Expo push tokens found`);
         return null;
       }
       
-      console.log(`[Cloud Function] ${validTokens.length} valid tokens out of ${allTokens.length} total`);
-      
-      // Create Expo push messages
-      const messages: ExpoPushMessage[] = validTokens.map(token => ({
-        to: token,
-        sound: 'default',
-        title,
-        body,
-        data: {
-          conversationId: conversationId || '',
-          messageId: messageId || '',
-          senderName: message.senderName || senderName || 'Unknown',
-          messageType: message.imageUrl ? 'image' : 'text',
-          type: 'new_message',
-        },
-        channelId: 'messages', // Android notification channel
-        priority: 'high',
-        badge: 1, // iOS badge count
-      }));
+      console.log(`[Cloud Function] Sending ${messages.length} notifications with personalized content`);
       
       // Send notifications in chunks (Expo recommends chunks of 100)
       const chunks = expo.chunkPushNotifications(messages);
@@ -268,7 +415,10 @@ export const sendPushNotification = functions.firestore
             ticket.details?.error === 'DeviceNotRegistered' ||
             ticket.message?.includes('not registered')
           ) {
-            invalidTokens.push(validTokens[index]);
+            const token = messages[index]?.to;
+            if (token && typeof token === 'string') {
+              invalidTokens.push(token);
+            }
           }
         }
       });
@@ -279,14 +429,24 @@ export const sendPushNotification = functions.firestore
       if (invalidTokens.length > 0) {
         console.log(`[Cloud Function] Removing ${invalidTokens.length} invalid Expo push tokens`);
         
-        const tokenRemovalPromises = Object.entries(userTokensMap).map(async ([userId, userTokens]) => {
-          const tokensToRemove = userTokens.filter(token => invalidTokens.includes(token));
-          if (tokensToRemove.length > 0) {
-            await admin.firestore().doc(`users/${userId}`).update({
-              expoPushTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove),
-            });
-            console.log(`[Cloud Function] Removed ${tokensToRemove.length} invalid tokens from user ${userId}`);
+        // Group invalid tokens by user
+        const userInvalidTokens: { [userId: string]: string[] } = {};
+        for (const token of invalidTokens) {
+          const userId = tokenToUserMap[token];
+          if (userId) {
+            if (!userInvalidTokens[userId]) {
+              userInvalidTokens[userId] = [];
+            }
+            userInvalidTokens[userId].push(token);
           }
+        }
+        
+        // Remove tokens for each user
+        const tokenRemovalPromises = Object.entries(userInvalidTokens).map(async ([userId, tokensToRemove]) => {
+          await admin.firestore().doc(`users/${userId}`).update({
+            expoPushTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove),
+          });
+          console.log(`[Cloud Function] Removed ${tokensToRemove.length} invalid tokens from user ${userId}`);
         });
         
         await Promise.all(tokenRemovalPromises);
@@ -306,4 +466,7 @@ export const sendPushNotification = functions.firestore
 export { translateMessage } from './ai/translateMessage';
 export { explainContext } from './ai/explainContext';
 export { defineSlang } from './ai/defineSlang';
+export { detectLanguage } from './ai/detectLanguage';
+export { autoTranslateOrchestrator } from './ai/autoTranslateOrchestrator';
+export { batchTranslateMessages } from './ai/batchTranslateMessages';
 

@@ -21,23 +21,23 @@ MessageAI follows a **layered architecture** with clear separation between UI, b
 ┌──────────────▼──────────────────────┐
 │       Service Layer                  │
 │  - Firebase services                 │
-│  - SQLite services                   │
+│  - AI services                       │
 │  - Business logic                    │
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
 │       Data Layer                     │
-│  - Firestore (remote)                │
-│  - SQLite (local)                    │
+│  - Firestore (with offline cache)   │
 │  - Firebase Storage                  │
+│  - Firebase Realtime Database        │
 └─────────────────────────────────────┘
 ```
 
 ## Core Patterns
 
-### 1. Optimistic UI Updates
+### 1. Optimistic UI Updates with Firestore Offline Persistence
 
-**Pattern:** Show results immediately, sync in background
+**Pattern:** Show results immediately, Firestore handles sync automatically
 
 **Implementation:**
 ```typescript
@@ -48,20 +48,21 @@ const sendMessage = async (text: string) => {
   // 1. Update UI immediately
   setMessages(prev => [...prev, tempMessage]);
   
-  // 2. Save to local SQLite
-  await sqliteService.saveMessage(tempMessage);
-  
-  // 3. Upload to Firestore (background)
+  // 2. Write to Firestore (queued automatically if offline)
   try {
-    await firestoreService.uploadMessage(tempMessage);
-    updateMessageStatus(tempMessage.id, 'sent');
+    const messageRef = doc(db, 'messages', tempMessage.id);
+    await setDoc(messageRef, tempMessage);
+    // Firestore's offline persistence:
+    // - Queues write automatically if offline
+    // - Syncs automatically when back online
+    // - hasPendingWrites metadata tracks sync status
   } catch (error) {
     updateMessageStatus(tempMessage.id, 'failed');
   }
 };
 ```
 
-**Why:** Users perceive the app as instant (< 50ms response)
+**Why:** Users perceive the app as instant (< 50ms response), automatic offline support
 
 **Where Used:**
 - Sending messages
@@ -69,24 +70,34 @@ const sendMessage = async (text: string) => {
 - Adding group members
 - Updating read receipts
 
-### 2. Cache-First Data Loading
+### 2. Firestore Offline-First Data Loading
 
-**Pattern:** Load from local cache immediately, sync fresh data in background
+**Pattern:** Firestore serves from cache first, syncs in background automatically
 
 **Implementation:**
 ```typescript
 const loadConversation = async (conversationId: string) => {
-  // 1. Load cached messages immediately (< 100ms)
-  const cached = await sqliteService.getMessages(conversationId);
-  setMessages(cached);
-  
-  // 2. Set up real-time listener (background)
-  const unsubscribe = firestoreService.listenToMessages(
-    conversationId,
-    (liveMessages) => {
-      // 3. Merge and update UI
-      const merged = mergeMessages(cached, liveMessages);
-      setMessages(merged);
+  // Set up real-time listener
+  // Firestore automatically:
+  // - Serves from cache first (< 100ms)
+  // - Syncs in background
+  // - Updates UI when fresh data arrives
+  const unsubscribe = onSnapshot(
+    query(
+      collection(db, 'messages'),
+      where('conversationId', '==', conversationId),
+      orderBy('timestamp', 'desc'),
+      limit(100)
+    ),
+    { includeMetadataChanges: false }, // Only emit when data changes
+    (querySnapshot) => {
+      const messages = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+        // Check if this write is still pending (optimistic)
+        isPending: doc.metadata.hasPendingWrites
+      }));
+      setMessages(messages);
     }
   );
   
@@ -94,7 +105,7 @@ const loadConversation = async (conversationId: string) => {
 };
 ```
 
-**Why:** Fast perceived load times, always shows something useful
+**Why:** Fast perceived load times (< 100ms), always up-to-date, automatic offline support
 
 **Where Used:**
 - Opening conversations
@@ -111,63 +122,57 @@ const loadConversation = async (conversationId: string) => {
 services/
 ├── firebase/
 │   ├── authService.ts       # Authentication operations
-│   ├── firestoreService.ts  # Firestore CRUD operations
 │   └── storageService.ts    # File upload/download
-├── sqlite/
-│   ├── sqliteService.ts     # Local database operations
-│   └── migrations/          # Schema migrations
 ├── messaging/
 │   ├── messageService.ts    # Message business logic
 │   ├── conversationService.ts
-│   └── syncService.ts       # Offline sync logic
-└── network/
-    └── networkService.ts    # Connectivity monitoring
+│   └── readReceiptService.ts
+├── ai/
+│   ├── translationService.ts
+│   ├── contextService.ts
+│   └── definitionService.ts
+├── auth/
+│   └── authPersistenceService.ts
+└── user/
+    └── userService.ts
 ```
 
 **Why:** 
 - Testable business logic
-- Swap implementations easily
 - Clear separation of concerns
+- Easy to maintain and extend
 
-### 4. Offline Queue Pattern
+### 4. Firestore Automatic Offline Queue
 
-**Pattern:** Queue operations when offline, replay when online
+**Pattern:** Firestore queues writes automatically, no custom queue needed
 
-**Implementation:**
+**How It Works:**
 ```typescript
-// Offline queue workflow
-const queueService = {
-  // Add to queue
-  enqueue: async (operation: Operation) => {
-    await sqliteService.saveToPendingQueue(operation);
-  },
-  
-  // Process queue when online
-  processQueue: async () => {
-    const pending = await sqliteService.getPendingOperations();
-    
-    for (const op of pending) {
-      try {
-        await executeOperation(op);
-        await sqliteService.removeFromQueue(op.id);
-      } catch (error) {
-        await sqliteService.incrementRetryCount(op.id);
-        if (op.retryCount >= 3) {
-          await markAsFailed(op.id);
-        }
-      }
-    }
-  },
+// Enable offline persistence once in firebase.ts
+import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
+
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache(),
+});
+
+// Now all writes are automatically queued when offline
+// No custom queue service needed!
+const sendMessage = async (message: Message) => {
+  await setDoc(doc(db, 'messages', message.id), message);
+  // If offline: queued automatically
+  // When online: syncs automatically
+  // No manual sync logic required
 };
 ```
 
-**Why:** Seamless offline experience, no data loss
+**Why:** Native implementation is more reliable, less code to maintain
 
-**Where Used:**
-- Sending messages
-- Creating conversations
-- Updating user profiles
-- Uploading images (future)
+**Benefits:**
+- Automatic queuing of writes when offline
+- Automatic sync when back online
+- No manual retry logic needed
+- Metadata tracking (hasPendingWrites)
+- Cross-platform consistency
 
 ### 5. Firestore Real-Time Listeners
 
@@ -328,47 +333,32 @@ interface Message {
 }
 ```
 
-### SQLite Schema
+### Firestore Offline Cache
 
-```sql
--- Mirrors Firestore but optimized for local queries
-CREATE TABLE conversations (
-  id TEXT PRIMARY KEY,
-  participants TEXT,      -- JSON stringified array
-  type TEXT,
-  groupName TEXT,
-  lastMessage TEXT,
-  lastMessageTime INTEGER,
-  updatedAt INTEGER
-);
+**Pattern:** Firestore automatically caches data locally
 
-CREATE TABLE messages (
-  id TEXT PRIMARY KEY,
-  conversationId TEXT,
-  senderId TEXT,
-  text TEXT,
-  imageUrl TEXT,
-  timestamp INTEGER,
-  status TEXT,
-  readBy TEXT,            -- JSON stringified array
-  createdAt INTEGER,
-  FOREIGN KEY (conversationId) REFERENCES conversations(id)
-);
+**How It Works:**
+```typescript
+// Enable once in src/config/firebase.ts
+import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 
-CREATE INDEX idx_messages_conversation 
-ON messages(conversationId, timestamp DESC);
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache(),
+});
 
--- Offline queue
-CREATE TABLE pendingMessages (
-  id TEXT PRIMARY KEY,
-  conversationId TEXT,
-  senderId TEXT,
-  text TEXT,
-  timestamp INTEGER,
-  retryCount INTEGER DEFAULT 0,
-  createdAt INTEGER
-);
+// Now all queries are automatically cached:
+// - First load: serves from cache (instant)
+// - Background: syncs with server
+// - Updates: automatically cached
+// - Offline: serves from cache only
 ```
+
+**Benefits:**
+- **No Schema Management:** Firestore handles schema automatically
+- **No Migrations:** Schema evolves naturally with your data model
+- **Automatic Indexing:** Firestore creates indexes as needed
+- **Cross-User Security:** Cache automatically cleared when users switch
+- **Platform Native:** Optimized for each platform (iOS, Android, Web)
 
 ## Component Patterns
 
@@ -441,10 +431,8 @@ export function useMessages(conversationId: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   
   useEffect(() => {
-    // Load cached
-    sqliteService.getMessages(conversationId).then(setMessages);
-    
-    // Listen for updates
+    // Set up Firestore listener
+    // Automatically serves from cache first, then syncs
     return messageService.listenToMessages(conversationId, setMessages);
   }, [conversationId]);
   
@@ -510,12 +498,13 @@ const sendTypingIndicator = debounce(() => {
 
 ```typescript
 try {
-  // Try online operation
-  await firestoreService.sendMessage(message);
+  // Write to Firestore
+  // If offline, Firestore queues automatically
+  await setDoc(doc(db, 'messages', message.id), message);
+  showToast('Message sent');
 } catch (error) {
   if (isNetworkError(error)) {
-    // Fall back to offline queue
-    await queueService.enqueue(message);
+    // Firestore will queue and retry automatically
     showToast('Message will send when connected');
   } else {
     // Unrecoverable error

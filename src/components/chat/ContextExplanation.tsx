@@ -5,9 +5,7 @@ import {
   Modal,
   TouchableOpacity,
   StyleSheet,
-  Pressable,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 
 interface ContextExplanationProps {
@@ -20,8 +18,8 @@ interface ContextExplanationProps {
 }
 
 /**
- * ContextExplanation component
- * Displays cultural context explanation in a modal
+ * ContextExplanation component - RECREATED FROM SCRATCH
+ * Simple, reliable cultural context explanation modal
  */
 export function ContextExplanation({
   visible,
@@ -31,71 +29,85 @@ export function ContextExplanation({
   error = null,
   messageText,
 }: ContextExplanationProps) {
+  console.log('[ContextExplanation] RENDER - Props:', {
+    visible,
+    explanation: explanation ? 'present' : 'null',
+    isLoading,
+    error: error ? 'present' : 'null',
+    messageText,
+  });
+
   return (
     <Modal
       visible={visible}
-      transparent
+      transparent={false}
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Cultural Context</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.content}>
-            <View style={styles.messagePreview}>
-              <Text style={styles.messageLabel}>Message:</Text>
-              <Text style={styles.messageText}>{messageText}</Text>
-            </View>
-
-            {isLoading && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={styles.loadingText}>
-                  Analyzing cultural context...
-                </Text>
-              </View>
-            )}
-
-            {error && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>⚠️ {error}</Text>
-              </View>
-            )}
-
-            {explanation && !isLoading && !error && (
-              <View style={styles.explanationContainer}>
-                <Text style={styles.explanationLabel}>Explanation:</Text>
-                <Text style={styles.explanationText}>{explanation}</Text>
-              </View>
-            )}
-          </ScrollView>
-
-          <TouchableOpacity style={styles.doneButton} onPress={onClose}>
-            <Text style={styles.doneText}>Done</Text>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Cultural Context</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
         </View>
-      </Pressable>
+
+        {/* Content */}
+        <View style={styles.content}>
+
+          {/* Message Preview */}
+          <View style={styles.messageBox}>
+            <Text style={styles.messageLabel}>MESSAGE:</Text>
+            <Text style={styles.messageText}>{messageText}</Text>
+          </View>
+
+          {/* Loading State */}
+          {isLoading && (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color="#007AFF" />
+              <Text style={styles.loadingText}>Analyzing cultural context...</Text>
+            </View>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>⚠️ {error}</Text>
+            </View>
+          )}
+
+          {/* Explanation */}
+          {explanation && !isLoading && !error && (
+            <View style={styles.explanationBox}>
+              <Text style={styles.explanationLabel}>EXPLANATION:</Text>
+              <Text style={styles.explanationText}>{explanation}</Text>
+            </View>
+          )}
+
+          {/* No Content */}
+          {!explanation && !isLoading && !error && (
+            <View style={styles.noContentBox}>
+              <Text style={styles.noContentText}>
+                No explanation available. Try again or check your connection.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Done Button */}
+        <TouchableOpacity style={styles.doneButton} onPress={onClose}>
+          <Text style={styles.doneText}>Done</Text>
+        </TouchableOpacity>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
   container: {
+    flex: 1,
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
   },
   header: {
     flexDirection: 'row',
@@ -104,6 +116,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+    backgroundColor: '#f8f8f8',
   },
   title: {
     fontSize: 20,
@@ -111,20 +124,21 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
   },
   closeText: {
     fontSize: 24,
     color: '#666',
   },
   content: {
+    flex: 1,
     padding: 20,
   },
-  messagePreview: {
-    backgroundColor: '#f8f8f8',
+  messageBox: {
+    backgroundColor: '#f0f0f0',
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
+    borderRadius: 8,
+    marginBottom: 16,
   },
   messageLabel: {
     fontSize: 12,
@@ -134,32 +148,38 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   messageText: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#333',
     lineHeight: 22,
   },
-  loadingContainer: {
+  loadingBox: {
     alignItems: 'center',
     paddingVertical: 40,
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#666',
     marginTop: 16,
   },
-  errorContainer: {
-    backgroundColor: '#FFF3F3',
-    borderLeftWidth: 3,
-    borderLeftColor: '#FF3B30',
+  errorBox: {
+    backgroundColor: '#ffebee',
+    borderLeftWidth: 4,
+    borderLeftColor: '#f44336',
     padding: 16,
     borderRadius: 8,
+    marginBottom: 16,
   },
   errorText: {
-    fontSize: 14,
-    color: '#D32F2F',
+    fontSize: 16,
+    color: '#d32f2f',
   },
-  explanationContainer: {
-    marginTop: 8,
+  explanationBox: {
+    backgroundColor: '#e8f5e8',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4caf50',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
   },
   explanationLabel: {
     fontSize: 12,
@@ -169,21 +189,27 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   explanationText: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#333',
     lineHeight: 24,
   },
-  doneButton: {
-    padding: 20,
-    backgroundColor: '#007AFF',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+  noContentBox: {
+    alignItems: 'center',
+    paddingVertical: 40,
   },
-  doneText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#fff',
+  noContentText: {
+    fontSize: 16,
+    color: '#666',
     textAlign: 'center',
   },
+  doneButton: {
+    backgroundColor: '#007AFF',
+    padding: 20,
+    alignItems: 'center',
+  },
+  doneText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+  },
 });
-

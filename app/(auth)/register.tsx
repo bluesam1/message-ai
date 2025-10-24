@@ -9,7 +9,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useAuth } from '../../src/store/AuthContext';
 import { validateRegistrationForm } from '../../src/utils/validation';
 import { getAuthErrorMessage } from '../../src/utils/errorMessages';
@@ -36,11 +36,12 @@ export default function RegisterScreen() {
     try {
       setLoading(true);
       await signUp(email.trim(), password, displayName.trim());
-      // Navigation handled by root layout
+      
+      // Navigate to language selection for new users
+      router.replace('/(auth)/selectLanguage');
     } catch (error: any) {
       const errorMessage = getAuthErrorMessage(error);
       Alert.alert('Registration Failed', errorMessage);
-    } finally {
       setLoading(false);
     }
   };

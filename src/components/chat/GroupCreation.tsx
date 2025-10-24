@@ -6,7 +6,7 @@
  * Step 3: Review and create
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,12 +27,17 @@ import GroupMemberPicker, { PendingMember } from './GroupMemberPicker';
 
 type Step = 'name' | 'members' | 'review';
 
-export default function GroupCreation() {
+interface GroupCreationProps {
+  onCancel?: () => void;
+}
+
+export default function GroupCreation({ onCancel }: GroupCreationProps) {
   const { user } = useAuth();
   const [step, setStep] = useState<Step>('name');
   const [groupName, setGroupName] = useState('');
   const [members, setMembers] = useState<PendingMember[]>([]);
   const [loading, setLoading] = useState(false);
+
 
   // Step 1: Group Name Validation
   const handleNextFromName = () => {
@@ -129,7 +134,13 @@ export default function GroupCreation() {
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={styles.secondaryButton}
-              onPress={() => router.back()}
+              onPress={() => {
+                if (onCancel) {
+                  onCancel();
+                } else {
+                  router.back();
+                }
+              }}
             >
               <Text style={styles.secondaryButtonText}>Cancel</Text>
             </TouchableOpacity>

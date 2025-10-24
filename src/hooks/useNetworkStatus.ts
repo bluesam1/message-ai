@@ -2,10 +2,11 @@
  * React Hook for Network Status
  * 
  * Provides real-time network connectivity state to React components
+ * Uses React Native NetInfo for network detection
  */
 
 import { useState, useEffect } from 'react';
-import { networkService } from '../services/network/networkService';
+import NetInfo from '@react-native-community/netinfo';
 
 export interface NetworkStatus {
   isOnline: boolean;
@@ -27,15 +28,14 @@ export interface NetworkStatus {
  * ```
  */
 export function useNetworkStatus(): NetworkStatus {
-  const [isOnline, setIsOnline] = useState(() => networkService.isOnline());
+  const [isOnline, setIsOnline] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
-    // Set initial state
-    setIsOnline(networkService.isOnline());
-
-    // Subscribe to network changes
-    const unsubscribe = networkService.subscribe((online: boolean) => {
+    // Subscribe to network state changes
+    const unsubscribe = NetInfo.addEventListener(state => {
+      const online = state.isConnected ?? true;
+      
       if (online && !isOnline) {
         // Going from offline to online - show connecting state briefly
         setIsConnecting(true);

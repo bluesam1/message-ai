@@ -12,6 +12,8 @@ import {
 interface ExplainContextRequest {
   text: string;
   messageId?: string;
+  messageLanguage?: string; // Language of the original message
+  userLanguage?: string; // User's preferred language for the explanation
 }
 
 interface ExplainContextResponse {
@@ -37,21 +39,25 @@ export const explainContext = https.onCall(
 
       // Validate input
       const text = validateTextInput(request.data.text, 'text', 1, 2000);
+      const messageLanguage = request.data.messageLanguage || 'unknown';
+      const userLanguage = request.data.userLanguage || 'en';
 
-      console.log(`Context explanation request from ${userId}: ${text.length} chars`);
+      console.log(`Context explanation request from ${userId}: ${text.length} chars (message: ${messageLanguage}, user: ${userLanguage})`);
 
-      // Create OpenAI prompt
+      // Create language-aware OpenAI prompt
       const systemPrompt = `You are a cultural communication expert. Explain the cultural context, idioms, references, or nuances in the given text.
-Focus on:
-- Cultural references or idioms
-- Implicit meanings or subtext
-- Social or regional context
-- Any phrases that might be misunderstood across cultures
 
-Keep your explanation concise (100-150 words). If the text has no special cultural context, say so briefly.
-Be helpful and educational.`;
+IMPORTANT INSTRUCTIONS:
+- The original message is in ${messageLanguage} language
+- Provide your explanation in ${userLanguage} language
+- When referencing the original text, preserve the exact words/phrases in quotes
+- Focus on cultural context specific to ${messageLanguage} culture
+- Explain any cultural references, idioms, or implicit meanings
+- If the text has no special cultural context, say so briefly
 
-      const userPrompt = `Explain the cultural context of this message: "${text}"`;
+Keep your explanation concise (100-150 words). Be helpful and educational.`;
+
+      const userPrompt = `Explain the cultural context of this ${messageLanguage} message: "${text}"`;
 
       try {
         // Call OpenAI

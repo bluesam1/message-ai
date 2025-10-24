@@ -49,7 +49,6 @@
           "color": "#ffffff"
         }
       ],
-      "expo-sqlite",
       "expo-secure-store"
     ]
   }

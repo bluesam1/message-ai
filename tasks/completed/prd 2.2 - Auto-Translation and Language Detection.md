@@ -2,7 +2,7 @@
 
 **Phase:** 2 - International Communicator  
 **Sub-Phase:** 2.2  
-**Duration:** 6-8 hours  
+**Duration:** 12-15 hours  
 **Dependencies:** Sub-Phase 2.1 complete (Cloud Functions + OpenAI working)
 
 ---
@@ -15,12 +15,30 @@ Make translation proactive and automatic by detecting incoming message languages
 
 ## 📋 Scope
 
-### Feature 4: Language Detection & Auto-Translate
+### Feature 4A: User Preferred Language (Foundation)
+
+**User Experience**
+- During sign-up, user is asked "What's your preferred language?"
+- Language selector shows common languages (English, Spanish, Chinese, etc.)
+- User's selection is saved to their profile
+- This preference becomes the default for auto-translate settings in all conversations
+- Users can change their preferred language anytime in Settings
+- Existing users (lazy migration): Default to English until they set a preference
+
+**Technical Requirements**
+- Add `preferredLanguage` field to users collection (ISO 639-1 code)
+- Create language selection screen during onboarding
+- Add "Language" setting in user profile/settings
+- Use preferred language as default when enabling auto-translate
+- Lazy migration: Check if field exists, default to 'en' if not
+- Store language preference in Firestore for cross-device sync
+
+### Feature 4B: Language Detection & Auto-Translate
 
 **User Experience**
 - System automatically detects the language of incoming messages
 - User can toggle "Auto-translate messages" per conversation
-- User sets preferred language: "Always translate to [English/Spanish/French/etc.]"
+- When toggling on for first time, target language defaults to user's preferred language
 - When enabled, incoming foreign messages automatically translate
 - Loading indicator shows during translation
 - User can tap to view original message
@@ -63,14 +81,34 @@ This advanced feature demonstrates multi-step AI orchestration:
 
 ### Firestore Schema Extensions
 
+**users collection:**
+Add `preferredLanguage` field:
+
+```typescript
+{
+  uid: string,
+  email: string,
+  displayName: string,
+  photoURL?: string,
+  online: boolean,
+  lastSeen: timestamp,
+  createdAt: timestamp,
+  
+  // NEW FIELD:
+  preferredLanguage: string     // ISO 639-1 code (e.g., 'en', 'es', 'zh'). Default: 'en'
+}
+```
+
 **conversations collection:**
-Add `aiPrefs` object:
+Add `aiPrefs` object (now per-user):
 
 ```typescript
 aiPrefs: {
-  targetLang: string,           // e.g., 'en', 'es', 'fr', 'de'
-  autoTranslate: boolean,       // Enable/disable auto-translate
-  defaultTone?: string          // For future formality features (Sub-Phase 2.3)
+  [userId: string]: {           // Map of user IDs to their preferences
+    targetLang: string,         // e.g., 'en', 'es', 'fr', 'de' (defaults to user's preferredLanguage)
+    autoTranslate: boolean,     // Enable/disable auto-translate
+    defaultTone?: string        // For future formality features (Sub-Phase 2.3)
+  }
 }
 ```
 
@@ -79,9 +117,11 @@ Extend `aiMeta` object:
 
 ```typescript
 aiMeta: {
-  detectedLang: string,         // Language code (e.g., 'en', 'es')
-  translatedText: string,       // Translated message text
-  feedback?: 'positive' | 'negative',  // User rating of translation
+  detectedLang: string,                    // Language code (e.g., 'en', 'es')
+  translatedText: {                        // Translations keyed by language code
+    [lang: string]: string                 // e.g., { "en": "Hello", "es": "Hola" }
+  },
+  feedback?: 'positive' | 'negative',      // User rating of translation
   ...existing fields from 2.1
 }
 ```
@@ -90,31 +130,42 @@ aiMeta: {
 
 ## 👤 User Stories
 
-**US-030:** As a user, I want messages in other languages to automatically translate so I don't have to manually request translation.
+**US-029:** As a new user, I want to select my preferred language during sign-up so the app knows what language I speak.
 
-**US-031:** As a user, I can set "Always translate to English" for a specific conversation so all future messages translate automatically.
+**US-030:** As a user, I want messages in other languages to automatically translate to my preferred language so I don't have to manually request translation.
 
-**US-032:** As a user, I can toggle auto-translate on/off per conversation based on my needs.
+**US-031:** As a user, I can set "Always translate to [my preferred language]" for a specific conversation so all future messages translate automatically.
 
-**US-033:** As a user, I want to see a loading indicator while messages are being translated so I know the system is working.
+**US-032:** As a user, I can change my preferred language in Settings so the app adapts to my needs.
 
-**US-034:** As a user, I can tap a translated message to view the original text and verify accuracy.
+**US-033:** As a user, I can toggle auto-translate on/off per conversation based on my needs.
 
-**US-035:** As a user, I can rate translations (helpful/not helpful) to improve future translations.
+**US-034:** As a user, I want to see a loading indicator while messages are being translated so I know the system is working.
 
-**US-036:** As a user, I want my translation preferences to persist across app restarts so I don't have to reconfigure.
+**US-035:** As a user, I can tap a translated message to view the original text and verify accuracy.
+
+**US-036:** As a user, I can rate translations (helpful/not helpful) to improve future translations.
+
+**US-037:** As a user, I want my translation preferences to persist across app restarts so I don't have to reconfigure.
+
+**US-038:** As an existing user (lazy migration), the app defaults to English for auto-translate until I set my preferred language in Settings.
 
 ---
 
 ## ✅ Success Criteria
 
 ### Functional Requirements
+- [ ] New users are prompted to select preferred language during sign-up
+- [ ] Preferred language is saved to user profile in Firestore
+- [ ] Preferred language can be changed in Settings
+- [ ] Auto-translate defaults to user's preferred language
+- [ ] Existing users default to English (lazy migration)
 - [ ] Language detection accuracy > 90% (tested with 10+ languages)
 - [ ] Auto-translate toggle works per conversation
 - [ ] Target language selector shows common languages
 - [ ] Preferences persist in Firestore and reload correctly
 - [ ] Incoming messages auto-translate when enabled
-- [ ] Users can view original message by tapping translation
+- [ ] Users can view original message by tapping globe badge
 - [ ] Translation quality feedback mechanism works
 - [ ] System suggests auto-translate if user frequently manually translates
 
@@ -292,6 +343,81 @@ For sub-phase completion, demonstrate:
 
 ---
 
+## 🚀 Architecture Simplification: Remove SQLite Caching
+
+### Objective
+Replace custom SQLite caching strategy with Firestore's built-in offline persistence to simplify the codebase, eliminate stale data issues, and reduce maintenance burden.
+
+### Problem Statement
+Current implementation uses SQLite for:
+1. Caching messages and conversations (cache-first loading)
+2. Offline message queue (pending messages)
+3. Manual sync logic
+
+This has caused:
+- Stale data bugs (conversations showing wrong last message)
+- Complex state management (cached + live + temp messages)
+- Schema migration challenges
+- ~1000+ lines of code to maintain
+
+### Solution
+Use **Firestore Offline Persistence** for everything:
+- Firestore automatically caches queries locally
+- Firestore automatically queues writes when offline
+- Firestore automatically syncs when network returns
+- No manual queue or sync logic needed
+
+### Technical Implementation
+
+**Enable Firestore Offline Persistence:**
+```typescript
+// In src/config/firebase.ts
+import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
+
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache(),
+});
+```
+
+**How Firestore Handles Offline:**
+1. **Reads:** Firestore caches query results automatically
+2. **Writes:** Firestore queues writes locally, syncs when online
+3. **Status:** Use `SnapshotMetadata.hasPendingWrites` to show "Sending..." status
+4. **Retries:** Firestore handles retries with exponential backoff
+5. **Conflicts:** Firestore resolves conflicts intelligently
+
+### Code Removal
+- Remove `src/services/sqlite/sqliteService.ts` (~632 lines)
+- Remove `src/services/messaging/offlineQueueService.ts` (~100 lines)
+- Remove `src/services/messaging/syncService.ts` (~80 lines)
+- Remove cache-first loading logic from hooks (~200 lines)
+- **Total: ~1000+ lines removed**
+
+### Benefits
+- ✅ Eliminate stale data bugs
+- ✅ Simpler codebase (single source of truth)
+- ✅ No schema migrations
+- ✅ Better offline support (Firestore's queue is more robust)
+- ✅ Automatic sync (no manual sync service)
+- ✅ Fewer bugs (no cache invalidation logic)
+
+### Migration Steps
+1. Enable Firestore offline persistence
+2. Remove SQLite imports from all services
+3. Remove cache-first logic from hooks
+4. Simplify message sending (no manual queue)
+5. Remove cache clearing from auth logic
+6. Delete SQLite service files
+7. Remove expo-sqlite dependency
+8. Test offline message sending/reading
+9. Test sync when back online
+
+### References
+- See `_docs/CACHE_STRATEGY_ANALYSIS.md` for detailed analysis
+- Firestore Offline Persistence: https://firebase.google.com/docs/firestore/manage-data/enable-offline
+
+---
+
 ## 🔄 Next Steps
 
 Upon completion of Sub-Phase 2.2:
@@ -301,7 +427,36 @@ Upon completion of Sub-Phase 2.2:
 
 ---
 
-**Status:** Not Started  
-**Assigned To:** TBD  
-**Target Completion:** TBD
+**Status:** ✅ COMPLETE - All features implemented and deployed  
+**Assigned To:** Completed  
+**Completion Date:** October 23-24, 2025
+
+---
+
+## 📝 Recent Updates
+
+**2025-10-24:** Architecture Simplification (Task 14) - COMPLETE:
+- ✅ Removed all SQLite dependencies (~1000+ lines of code)
+- ✅ Enabled Firestore offline persistence (native caching + write queue)
+- ✅ Deleted: sqliteService, offlineQueueService, syncService, networkService
+- ✅ Simplified message hooks and conversation service
+- ✅ Fixed all timestamp handling inconsistencies with safe helpers
+- ✅ Updated 13 files to remove SQLite references
+- ✅ Removed expo-sqlite dependency and plugin
+- ✅ Single source of truth: Firestore with automatic offline support
+
+**2025-10-23:** Additional Features Implemented:
+- ✅ User preferred language integration with auto-translate
+- ✅ Language selection during onboarding
+- ✅ Profile settings for language preferences
+- ✅ Auto-translate toggle with globe icon animation
+- ✅ Cultural context explanation with language-aware prompts
+- ✅ Simplified language selection (bottom sheet modal)
+- ✅ Translation preview in conversation list
+- ✅ Real-time translation for push notifications
+- ✅ Cloud Functions refactoring for maintainability
+- ✅ Group info button repositioned next to group name
+- ✅ Debug elements removed from Cultural Context modal
+- ✅ Manual translation option removed from message menu
+- ✅ Test notification button removed from profile
 

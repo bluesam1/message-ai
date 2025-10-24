@@ -4,47 +4,59 @@
  * Shows user info and sign-out button
  */
 
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../src/store/AuthContext';
+import { LanguageSelector } from '../../src/components/chat/LanguageSelector';
+import { userPreferencesService } from '../../src/services/user/userPreferencesService';
+import { getLanguageName } from '../../src/services/ai/languageService';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState('en');
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [loadingLanguage, setLoadingLanguage] = useState(true);
+  const [savingLanguage, setSavingLanguage] = useState(false);
 
-  const handleTestNotification = async () => {
-    try {
-      console.log('[ProfileScreen] Sending test notification...');
-      
-      // Check permissions
-      const { status } = await Notifications.getPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permissions Required', 'Please grant notification permissions first');
-        return;
+  // Load user's preferred language
+  useEffect(() => {
+    const loadLanguage = async () => {
+      if (!user?.uid) return;
+      try {
+        const language = await userPreferencesService.getUserLanguage(user.uid);
+        setCurrentLanguage(language);
+        setSelectedLanguage(language);
+      } catch (error) {
+        console.error('[Profile] Error loading language:', error);
+      } finally {
+        setLoadingLanguage(false);
       }
+    };
+    loadLanguage();
+  }, [user?.uid]);
 
-      // Send a local notification immediately
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Test Message 📱',
-          body: 'This is a test foreground notification',
-          data: {
-            conversationId: 'test-conversation-123',
-            messageId: 'test-message-456',
-            senderName: 'Test User',
-            messageType: 'text',
-            type: 'new_message',
-          },
-        },
-        trigger: null, // null = immediately
-      });
 
-      console.log('[ProfileScreen] Test notification sent!');
-      Alert.alert('Success', 'Test notification sent! Check if it appears.');
+  const handleLanguageSelect = async (languageCode: string) => {
+    if (!user?.uid) return;
+    
+    try {
+      setSavingLanguage(true);
+      await userPreferencesService.updateUserLanguage(user.uid, languageCode);
+      setCurrentLanguage(languageCode);
+      setSelectedLanguage(languageCode);
+      Alert.alert('Success', 'Language preference updated!');
     } catch (error) {
-      console.error('[ProfileScreen] Failed to send test notification:', error);
-      Alert.alert('Error', 'Failed to send test notification');
+      console.error('[Profile] Error updating language:', error);
+      Alert.alert('Error', 'Failed to update language preference');
+      // Revert selection on error
+      setSelectedLanguage(currentLanguage);
+    } finally {
+      setSavingLanguage(false);
     }
   };
+
 
   const handleSignOut = async () => {
     console.log('[ProfileScreen] handleSignOut called');
@@ -89,13 +101,39 @@ export default function ProfileScreen() {
         <Text style={styles.email}>{user?.email || 'No email'}</Text>
       </View>
 
-      <TouchableOpacity style={styles.testButton} onPress={handleTestNotification}>
-        <Text style={styles.testButtonText}>Test Notification 🔔</Text>
-      </TouchableOpacity>
+      {/* Settings Section */}
+      <View style={styles.settingsSection}>
+        <Text style={styles.sectionTitle}>Settings</Text>
+        
+        <TouchableOpacity 
+          style={styles.settingRow} 
+          onPress={() => setShowLanguageSelector(true)}
+          disabled={loadingLanguage || savingLanguage}
+        >
+          <Text style={styles.settingIcon}>🌐</Text>
+          <View style={styles.settingContent}>
+            <Text style={styles.settingText}>Language</Text>
+            {loadingLanguage ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Text style={styles.settingValue}>{getLanguageName(currentLanguage)}</Text>
+            )}
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Text style={styles.signOutButtonText}>Sign Out</Text>
       </TouchableOpacity>
+
+      {/* Language Selector Modal */}
+      <LanguageSelector
+        visible={showLanguageSelector}
+        selectedLanguage={selectedLanguage}
+        onSelectLanguage={handleLanguageSelect}
+        onClose={() => setShowLanguageSelector(false)}
+      />
     </View>
   );
 }
@@ -133,18 +171,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  testButton: {
-    height: 50,
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+  settingsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: 12,
   },
-  testButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  settingRow: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  settingContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  settingText: {
+    fontSize: 17,
+    color: '#000',
+  },
+  settingValue: {
+    fontSize: 15,
+    color: '#8E8E93',
+  },
+  chevron: {
+    fontSize: 24,
+    color: '#C7C7CC',
+    fontWeight: '300',
+    marginLeft: 8,
   },
   signOutButton: {
     height: 50,

@@ -24,7 +24,7 @@ export type ConversationType = 'direct' | 'group';
  * Stores AI-generated content like translations, explanations, and definitions
  */
 export interface AIMetadata {
-  /** Detected language of the original message */
+  /** Detected language of the original message (ISO 639-1 code, e.g., "en", "es") */
   detectedLang?: string;
   
   /** Translations keyed by language code (e.g., { en: "Hello", es: "Hola" }) */
@@ -35,6 +35,9 @@ export interface AIMetadata {
   
   /** Slang or idiom definition */
   slangDefinition?: string;
+  
+  /** User feedback on translation quality */
+  feedback?: 'positive' | 'negative';
 }
 
 /**
@@ -75,6 +78,29 @@ export interface Message {
 }
 
 /**
+ * AI preferences for a single user in a conversation
+ * Controls auto-translation and AI behavior per user
+ */
+export interface AIPreferences {
+  /** Target language for auto-translation (ISO 639-1 code, e.g., "en", "es", "fr") */
+  targetLang: string;
+  
+  /** Enable/disable auto-translation for incoming messages */
+  autoTranslate: boolean;
+  
+  /** Default tone for AI replies (future feature in PRD 2.3) */
+  defaultTone?: string;
+}
+
+/**
+ * Map of user IDs to their AI preferences
+ * Stored in conversation.aiPrefs
+ */
+export interface AIPreferencesMap {
+  [userId: string]: AIPreferences;
+}
+
+/**
  * Conversation interface
  * Represents a conversation between users
  * Stored in both Firestore (conversations collection) and SQLite (conversations table)
@@ -98,9 +124,6 @@ export interface Conversation {
   /** User ID of the conversation creator (for groups, the user who created it) */
   createdBy: string;
   
-  /** Preview of the last message sent */
-  lastMessage: string;
-  
   /** Timestamp of the last message (milliseconds since epoch) */
   lastMessageTime: number;
   
@@ -109,6 +132,10 @@ export interface Conversation {
   
   /** Last update timestamp (milliseconds since epoch) */
   updatedAt: number;
+  
+  
+  /** AI preferences per user (auto-translation, default tone, etc.) - Map of userId to preferences */
+  aiPrefs?: AIPreferencesMap;
 }
 
 /**

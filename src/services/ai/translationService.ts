@@ -125,3 +125,39 @@ export function getAvailableTranslations(message: Message): string[] {
   return Object.keys(message.aiMeta?.translatedText || {});
 }
 
+/**
+ * Translate text to a target language
+ * @param text - Text to translate
+ * @param targetLanguage - Target language code
+ * @param sourceLanguage - Optional source language code
+ * @returns Translated text
+ */
+export async function translateText(
+  text: string,
+  targetLanguage: string,
+  sourceLanguage?: string
+): Promise<string> {
+  try {
+    // Call Cloud Function
+    console.log(`Translating text to ${targetLanguage}...`);
+    const functions = getFunctions();
+    const translateFn = httpsCallable<TranslateRequest, TranslateResponse>(
+      functions,
+      'translateMessage'
+    );
+
+    const result = await translateFn({
+      text,
+      targetLanguage,
+    });
+
+    console.log(`Translation completed: ${result.data.tokensUsed} tokens`);
+    return result.data.translatedText;
+  } catch (error: any) {
+    console.error('Translation error:', error);
+    throw new Error(
+      error.message || 'Failed to translate text. Please try again.'
+    );
+  }
+}
+

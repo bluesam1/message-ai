@@ -1,11 +1,11 @@
 # Active Context
 
 ## Current Status
-**Phase:** PRD 2.1 Complete ✅ - AI Foundation Features Deployed (Translation, Context, Slang)  
-**Date:** October 23, 2025  
+**Phase:** PRD 2.2 Complete ✅ - Auto-Translation & Architecture Simplification  
+**Date:** October 24, 2025  
 **Branch:** main  
-**App Status:** Production-ready MVP with full messaging + AI-powered translation, cultural context, and slang definitions  
-**Next:** PRD 2.2 - Auto-Translation & Language Detection
+**App Status:** Production-ready MVP with full messaging + AI-powered auto-translation, simplified architecture with Firestore offline persistence  
+**Next:** PRD 2.3 - Smart Composition & AI Replies
 
 ## What Just Happened
 
@@ -154,6 +154,32 @@
 12. **Documentation:** Complete setup guide, user guide, and implementation status docs
 13. **Deployment:** All 3 Cloud Functions deployed and tested successfully
 
+### ✅ Completed (PRD 2.2 - Auto-Translation & Language Detection)
+1. **Language Detection:** OpenAI-powered automatic language detection for incoming messages
+2. **Auto-Translate Orchestrator:** Firestore-triggered Cloud Function for automatic translation workflow
+3. **User Preferred Language:** Profile-based language preferences with onboarding integration
+4. **Per-Conversation Preferences:** Auto-translate toggle and target language selection per chat
+5. **Translation UI:** Globe icon toggle with animation, translation badges, and feedback system
+6. **Cultural Context Enhancement:** Language-aware cultural explanations based on original message language
+7. **Offline Support:** Firestore native offline persistence (removed SQLite dependency)
+8. **Push Notification Translation:** Real-time translation for push notifications
+9. **Cloud Functions Refactoring:** Centralized utility functions for maintainability
+10. **UI/UX Improvements:** Simplified language selection, group info button repositioning, debug cleanup
+11. **Testing & Validation:** Comprehensive manual testing across multiple languages and scenarios
+12. **Documentation:** Updated AI features guide and implementation status
+13. **Architecture Simplification:** Removed ~1000 lines of SQLite code, single source of truth (Firestore)
+14. **Timestamp Consistency:** Fixed all date/time handling inconsistencies with safe toMillis() helpers
+
+### ✅ Recent UI/UX Enhancements (Post-PRD 2.2)
+1. **Modal Fixes:** Fixed Cultural Context and Slang Definition modals with simplified structure
+2. **Translation Preview:** Real-time last message fetching with automatic translation
+3. **Pull-to-Refresh:** Added native pull-to-refresh functionality to conversations list
+4. **Group Info Button:** Repositioned group info button next to group name for better UX
+5. **Debug Cleanup:** Removed debug elements and test buttons from production UI
+6. **Manual Translation Removal:** Removed manual translation option from message menu (auto-translate handles this)
+7. **New Chat Streamlining:** Dynamic new-chat screen with toggle between individual and group chat
+8. **Floating Action Button:** Added round plus button to center tab for better UX
+
 ### ✅ Completed (PRD 08 - Push Notifications)
 1. **expo-notifications Integration:** Full permission request and token management
 2. **Expo Push API Migration:** Switched from FCM to Expo Push API for better Expo Go compatibility
@@ -183,27 +209,28 @@
 4. ✅ Memory Bank updated
 
 #### Next Actions
-1. Begin PRD 2.2 - Auto-Translation & Language Detection
-2. Plan language detection workflow
-3. Implement auto-translate orchestration
-4. Add per-conversation language preferences
+1. Begin PRD 2.3 - Smart Composition & AI Replies
+2. Plan smart reply generation workflow
+3. Implement tone adjustment features
+4. Add message improvement suggestions
 
 ## Active Decisions
 
 ### Technology Choices (Confirmed)
-- **Frontend:** React Native with Expo SDK 50.x
-- **Routing:** Expo Router v3.x
-- **Backend:** Firebase (Auth, Firestore, Storage, FCM)
-- **Local DB:** Expo SQLite v13.x
+- **Frontend:** React Native with Expo SDK 54.x
+- **Routing:** Expo Router v6.x
+- **Backend:** Firebase (Auth, Firestore with offline persistence, Realtime Database, Storage, FCM)
 - **State:** Context API (keeping it simple, no Zustand unless needed)
-- **Testing:** Jest + @testing-library/react-native
+- **Testing:** Jest for unit tests (manual tests for integration)
 - **TypeScript:** v5.x
+- **AI Services:** OpenAI GPT-4 (gpt-4o-mini)
 
 ### Architecture Patterns (Confirmed)
-- **Optimistic UI:** Show changes immediately, sync in background
-- **Cache-First:** Load from SQLite, update from Firestore
+- **Single Source of Truth:** Firestore with native offline persistence (no custom SQLite cache)
+- **Optimistic UI:** Show changes immediately, Firestore handles sync automatically
 - **Service Layer:** Separate business logic from UI
 - **Component Structure:** Smart containers, dumb presentational components
+- **Real-time Updates:** Firestore listeners for all data synchronization
 
 ### Performance Targets (Non-Negotiable)
 | Action | Target | Maximum |
@@ -356,6 +383,23 @@ PRD 08 (Notifications) ────┘  ← Can develop in parallel
 16. **Global Timer Pattern:** Single shared timer for all components is more efficient than per-component timers - use global state with listeners
 17. **React Hook Cleanup:** Always unsubscribe listeners in useEffect cleanup to prevent memory leaks and stale state
 18. **Firebase Permissions:** Cloud Functions need Artifact Registry Reader (deployment) and Editor (Firestore writes) roles
+
+### From PRD 2.2 Architecture Simplification (SQLite Removal)
+1. **Firestore Offline Persistence:** Firestore's native offline persistence (`persistentLocalCache()`) is production-ready and comprehensive
+2. **Built-in Write Queue:** Firestore automatically queues writes when offline and syncs when online - no custom queue needed
+3. **Code Reduction:** Removing custom SQLite cache eliminated ~1000 lines of code and 4 service files
+4. **Single Source of Truth:** One data source (Firestore) eliminates sync bugs and consistency issues
+5. **Maintenance Benefits:** Less code = fewer bugs, easier onboarding, simpler debugging
+6. **Native Performance:** Firestore's native cache is optimized by Google engineers - better than custom solutions
+7. **Metadata Tracking:** `SnapshotMetadata.hasPendingWrites` provides optimistic UI feedback without custom status tracking
+8. **Timestamp Helpers Required:** Create safe `toMillis()` helpers to handle both Firestore Timestamps and numbers consistently
+9. **Type Safety Critical:** TypeScript strict null checks catch timestamp issues before runtime
+10. **Migration Strategy:** Enable persistence, remove SQLite imports, simplify hooks, delete old files, test thoroughly
+11. **Testing Focus:** After simplification, focus testing on remaining business logic, not removed cache layer
+12. **Offline First by Default:** Firestore offline persistence requires no configuration per-query - works automatically
+13. **Cache Invalidation:** Firestore handles cache invalidation automatically - no manual cache clearing needed
+14. **Cross-User Security:** Firestore's offline cache is automatically cleared when different users log in
+15. **Network Monitoring Simplified:** Still useful for UX feedback, but not required for data sync anymore
 
 ### From PRD Analysis
 1. **Test Coverage Focus:** Focus tests on utils and business logic, skip UI/Firebase tests ✅ VALIDATED

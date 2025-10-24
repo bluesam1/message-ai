@@ -84,12 +84,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const unsubscribe = authService.onAuthStateChanged(async (authUser) => {
       console.log('[AuthContext] Firebase auth state changed:', authUser ? `User ${authUser.uid}` : 'No user');
       
+      // Check if this is a different user than currently logged in
+      const currentUserId = user?.uid;
+      const newUserId = authUser?.uid;
+      const isDifferentUser = currentUserId && newUserId && currentUserId !== newUserId;
+      
+      if (isDifferentUser) {
+        console.log('[AuthContext] Different user detected');
+        // Firestore offline persistence handles cache automatically per user
+      }
+      
       if (authUser) {
         // User is authenticated, store in AsyncStorage
         await authPersistenceService.storeAuthData(authUser);
       } else {
         // User is not authenticated, clear stored data
         await authPersistenceService.clearAuthData();
+        
+        if (currentUserId) {
+          console.log('[AuthContext] User logged out');
+          // Firestore offline persistence handles cache automatically
+        }
       }
       
       setUser(authUser);
@@ -214,6 +229,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('[AuthContext] Step 5: Signing out from Firebase Auth');
         await authService.signOut(user.uid);
         console.log('[AuthContext] Logout sequence complete');
+        // Firestore offline persistence handles cache automatically
       } else {
         console.log('[AuthContext] No user to sign out');
       }

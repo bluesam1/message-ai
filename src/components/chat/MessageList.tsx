@@ -42,6 +42,11 @@ interface MessageListProps {
     isLoading: boolean;
     error: string | null;
   } | null;
+  /** Auto-translate preferences for the conversation */
+  autoTranslatePrefs?: {
+    targetLang: string;
+    autoTranslate: boolean;
+  };
 }
 
 /**
@@ -59,6 +64,7 @@ export default function MessageList({
   totalParticipants,
   onMessageLongPress,
   getTranslationState,
+  autoTranslatePrefs,
 }: MessageListProps) {
   const flatListRef = useRef<FlatList>(null);
 
@@ -135,6 +141,7 @@ export default function MessageList({
         totalParticipants={totalParticipants}
         onLongPress={() => onMessageLongPress?.(item)}
         translationState={translationState || undefined}
+        autoTranslatePrefs={autoTranslatePrefs}
       />
     );
   };

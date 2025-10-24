@@ -1,7 +1,7 @@
 /**
  * useMessages Hook
  * Custom hook for managing message state and real-time listeners
- * Implements cache-first loading strategy and optimistic updates
+ * Uses Firestore offline persistence for automatic caching and optimistic updates
  * Automatically marks messages as read when conversation is viewed
  */
 
@@ -10,7 +10,6 @@ import { Unsubscribe } from 'firebase/firestore';
 import { Message } from '../types/message';
 import {
   sendMessage as sendMessageService,
-  loadCachedMessages,
   listenToMessages,
   retryMessage as retryMessageService,
 } from '../services/messaging/messageService';
@@ -44,7 +43,7 @@ export default function useMessages(
 
   /**
    * Load messages on mount
-   * Cache-first strategy: Load from SQLite immediately, then set up Firestore listener
+   * Uses Firestore offline persistence for automatic caching
    */
   useEffect(() => {
     let unsubscribe: Unsubscribe | null = null;
@@ -54,21 +53,14 @@ export default function useMessages(
         setLoading(true);
         setError(null);
 
-        // Step 1: Load cached messages immediately (cache-first)
-        const cachedMessages = await loadCachedMessages(conversationId);
-        if (cachedMessages.length > 0) {
-          const sorted = sortMessagesByTimestamp(cachedMessages).reverse();
-          setMessages(sorted);
-          setLoading(false);
-        }
-
-        // Step 2: Set up real-time listener for live updates
+        // Set up real-time listener (Firestore handles caching automatically)
         unsubscribe = listenToMessages(conversationId, (liveMessages) => {
-          // Use live messages directly from Firestore (already includes all messages)
-          // The listener is already saving to SQLite, so we don't need to merge
-          const sorted = sortMessagesByTimestamp(liveMessages).reverse();
+          console.log(`[useMessages] 📨 Received ${liveMessages.length} messages from Firestore`);
+          console.log(`[useMessages] 📊 Message statuses:`, liveMessages.map(m => ({ id: m.id, status: m.status, text: m.text.substring(0, 20) + '...' })));
           
-          setMessages(sorted);
+          // Firestore offline persistence handles everything automatically
+          // No need for complex temp message merging
+          setMessages(liveMessages);
           setLoading(false);
         });
       } catch (err) {
@@ -126,50 +118,29 @@ export default function useMessages(
 
   /**
    * Send a message
-   * Uses optimistic update - message appears immediately
+   * Firestore handles optimistic updates automatically with offline persistence
+   * Always returns immediately to allow queuing multiple messages
    */
   const sendMessage = useCallback(
     async (text: string) => {
-      try {
-        // Create temporary message for optimistic update
-        const tempMessage: Message = {
-          id: `temp_${Date.now()}`,
-          conversationId,
-          senderId: currentUserId,
-          text: text.trim(),
-          imageUrl: null,
-          timestamp: Date.now(),
-          status: 'pending',
-          readBy: [currentUserId],
-          createdAt: Date.now(),
-        };
-
-        // Add to messages immediately (optimistic update)
-        setMessages((prev) => [tempMessage, ...prev]);
-
-        // Send message to backend
-        await sendMessageService(
-          conversationId,
-          text,
-          currentUserId
-        );
-
-        // Don't replace - let the Firestore listener handle it
-        // This prevents conflicts with the real-time update
-        // Remove the temp message
-        setMessages((prev) => prev.filter(msg => msg.id !== tempMessage.id));
-      } catch (err) {
-        console.error('[useMessages] Error sending message:', err);
-        
-        // Update message status to failed
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id.startsWith('temp_') ? { ...msg, status: 'failed' as const } : msg
-          )
-        );
-        
-        throw err;
-      }
+      console.log(`[useMessages] 📤 Sending message: "${text}"`);
+      
+      // Always return immediately for offline support
+      // Firestore will queue the message if offline
+      sendMessageService(
+        conversationId,
+        text,
+        currentUserId
+      ).then(() => {
+        console.log(`[useMessages] ✅ Message sent successfully`);
+      }).catch((err) => {
+        console.error('[useMessages] ❌ Error sending message:', err);
+        // Don't set error state - Firestore will retry automatically
+        // The message will appear with "pending" status via the listener
+      });
+      
+      // Return immediately to allow queuing multiple messages
+      return Promise.resolve();
     },
     [conversationId, currentUserId]
   );

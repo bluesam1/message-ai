@@ -1,7 +1,7 @@
 /**
  * Conversation Service for MessageAI
  * Handles conversation creation, retrieval, and management
- * Integrates with both Firestore and SQLite
+ * Uses Firestore with offline persistence for automatic caching
  */
 
 import {
@@ -21,9 +21,10 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Conversation } from '../../types/message';
-import * as sqliteService from '../sqlite/sqliteService';
 import { getUserIdsByEmails } from '../../utils/userLookup';
 import { validateGroupName, validateMinimumParticipants } from '../../utils/groupValidation';
+import { ConversationWithParticipants } from '../../types/message';
+import { User } from '../../types/user';
 
 /**
  * Generate a unique conversation ID
@@ -96,7 +97,6 @@ async function findExistingConversation(
       groupName: docData.groupName || null,
       groupPhoto: docData.groupPhoto || null,
       createdBy: docData.createdBy || docData.participants[0],
-      lastMessage: docData.lastMessage || '',
       lastMessageTime: toMillis(docData.lastMessageTime),
       createdAt: toMillis(docData.createdAt),
       updatedAt: toMillis(docData.updatedAt),
@@ -142,7 +142,6 @@ async function createConversation(
       groupName: groupName || null,
       groupPhoto: null,
       createdBy: createdBy || sortedParticipants[0],
-      lastMessage: '',
       lastMessageTime: now,
       createdAt: now,
       updatedAt: now,
@@ -156,14 +155,10 @@ async function createConversation(
       groupName: groupName || null,
       groupPhoto: null,
       createdBy: createdBy || sortedParticipants[0],
-      lastMessage: '',
       lastMessageTime: Timestamp.fromMillis(now),
       createdAt: Timestamp.fromMillis(now),
       updatedAt: Timestamp.fromMillis(now),
     });
-    
-    // Save to SQLite
-    await sqliteService.saveConversation(conversation);
     
     console.log('[ConversationService] Created new conversation:', conversationId);
     return conversation;
@@ -193,8 +188,6 @@ export async function findOrCreateConversation(
     const existingConversation = await findExistingConversation([userId1, userId2]);
     
     if (existingConversation) {
-      // Save to SQLite for offline access
-      await sqliteService.saveConversation(existingConversation);
       return existingConversation;
     }
     
@@ -209,7 +202,7 @@ export async function findOrCreateConversation(
 
 /**
  * Get a single conversation by ID
- * Tries SQLite first (cache-first), then Firestore
+ * Uses Firestore with offline persistence for automatic caching
  * 
  * @param {string} conversationId - Conversation ID
  * @returns {Promise<Conversation | null>} Conversation or null if not found
@@ -218,14 +211,7 @@ export async function getConversationById(
   conversationId: string
 ): Promise<Conversation | null> {
   try {
-    // Try SQLite first (cache-first)
-    const cachedConversation = await sqliteService.getConversation(conversationId);
-    if (cachedConversation) {
-      console.log('[ConversationService] Found conversation in cache');
-      return cachedConversation;
-    }
-    
-    // Fetch from Firestore
+    // Fetch from Firestore (offline persistence handles caching)
     const conversationRef = doc(db, 'conversations', conversationId);
     const conversationDoc = await getDoc(conversationRef);
     
@@ -241,14 +227,10 @@ export async function getConversationById(
       groupName: docData.groupName || null,
       groupPhoto: docData.groupPhoto || null,
       createdBy: docData.createdBy || docData.participants[0],
-      lastMessage: docData.lastMessage || '',
       lastMessageTime: toMillis(docData.lastMessageTime),
       createdAt: toMillis(docData.createdAt),
       updatedAt: toMillis(docData.updatedAt),
     };
-    
-    // Save to SQLite for future access
-    await sqliteService.saveConversation(conversation);
     
     return conversation;
   } catch (error) {
@@ -259,7 +241,7 @@ export async function getConversationById(
 
 /**
  * Get all conversations for a user
- * Loads from SQLite immediately, sets up Firestore listener for real-time updates
+ * Uses Firestore listener with offline persistence for automatic caching
  * 
  * @param {string} userId - User ID
  * @param {Function} onUpdate - Callback function called when conversations update
@@ -270,16 +252,7 @@ export async function getUserConversations(
   onUpdate: (conversations: Conversation[]) => void
 ): Promise<Unsubscribe> {
   try {
-    // Load from SQLite immediately (cache-first)
-    const cachedConversations = await sqliteService.getConversations();
-    const userConversations = cachedConversations.filter((conv) =>
-      conv.participants.includes(userId)
-    );
-    
-    // Call callback with cached data
-    onUpdate(userConversations);
-    
-    // Set up Firestore listener for real-time updates
+    // Set up Firestore listener (offline persistence handles caching)
     const conversationsRef = collection(db, 'conversations');
     const q = query(
       conversationsRef,
@@ -287,7 +260,9 @@ export async function getUserConversations(
       orderBy('lastMessageTime', 'desc')
     );
     
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+    const unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, async (querySnapshot) => {
+      console.log(`[ConversationService] 🔄 Firestore listener triggered with ${querySnapshot.docs.length} conversations`);
+      
       const conversations: Conversation[] = [];
       
       for (const docSnapshot of querySnapshot.docs) {
@@ -299,19 +274,22 @@ export async function getUserConversations(
           groupName: docData.groupName || null,
           groupPhoto: docData.groupPhoto || null,
           createdBy: docData.createdBy || docData.participants[0],
-          lastMessage: docData.lastMessage || '',
-          lastMessageTime: docData.lastMessageTime?.toMillis() || Date.now(),
-          createdAt: docData.createdAt?.toMillis() || Date.now(),
-          updatedAt: docData.updatedAt?.toMillis() || Date.now(),
+          lastMessageTime: toMillis(docData.lastMessageTime),
+          createdAt: toMillis(docData.createdAt),
+          updatedAt: toMillis(docData.updatedAt),
+          aiPrefs: docData.aiPrefs || undefined, // Include AI preferences for auto-translate
         };
         
-        conversations.push(conversation);
+        console.log(`[ConversationService] 📋 Conversation ${conversation.id}:`, {
+          lastMessageTime: conversation.lastMessageTime,
+          timestamp: new Date(conversation.lastMessageTime).toISOString(),
+          participants: conversation.participants
+        });
         
-        // Save to SQLite for offline access
-        await sqliteService.saveConversation(conversation);
+        conversations.push(conversation);
       }
       
-      console.log(`[ConversationService] Received ${conversations.length} conversations from Firestore`);
+      console.log(`[ConversationService] ✅ Received ${conversations.length} conversations from Firestore`);
       
       // Call callback with updated data
       onUpdate(conversations);
@@ -325,49 +303,145 @@ export async function getUserConversations(
 }
 
 /**
- * Update conversation's last message
+ * Enrich conversations with user data for display
+ * Adds participant names, photos, and other user information
+ * 
+ * @param {Conversation[]} conversations - Array of conversations to enrich
+ * @returns {Promise<ConversationWithParticipants[]>} Enriched conversations
+ */
+export async function enrichConversationsWithUserData(
+  conversations: Conversation[],
+  currentUserId: string
+): Promise<ConversationWithParticipants[]> {
+  try {
+    console.log(`[ConversationService] 🔄 Enriching ${conversations.length} conversations with user data`);
+    
+    const enrichedConversations: ConversationWithParticipants[] = [];
+    
+    for (const conversation of conversations) {
+      try {
+        // Get user data for all participants
+        const participantUsers: User[] = [];
+        const participantNames: string[] = [];
+        const participantPhotoURLs: string[] = [];
+        
+        for (const participantId of conversation.participants) {
+          try {
+            const userRef = doc(db, 'users', participantId);
+            const userDoc = await getDoc(userRef);
+            
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              const user: User = {
+                uid: participantId,
+                email: userData.email || '',
+                displayName: userData.displayName || 'Unknown',
+                photoURL: userData.photoURL || null,
+                online: userData.online || false,
+                lastSeen: toMillis(userData.lastSeen),
+                createdAt: toMillis(userData.createdAt),
+                preferredLanguage: userData.preferredLanguage || 'en',
+              };
+              
+              participantUsers.push(user);
+              participantNames.push(user.displayName);
+              participantPhotoURLs.push(user.photoURL || '');
+            } else {
+              // Fallback for missing user data
+              participantNames.push('Unknown');
+              participantPhotoURLs.push('');
+            }
+          } catch (userError) {
+            console.error(`[ConversationService] Error fetching user ${participantId}:`, userError);
+            participantNames.push('Unknown');
+            participantPhotoURLs.push('');
+          }
+        }
+        
+        // Create enriched conversation
+        const enrichedConversation: ConversationWithParticipants = {
+          ...conversation,
+          participantNames,
+          participantPhotoURLs,
+        };
+        
+        // For direct conversations, identify the other participant
+        if (conversation.type === 'direct' && participantUsers.length === 2) {
+          // Find the other participant (not the current user)
+          const otherParticipant = participantUsers.find(user => user.uid !== currentUserId);
+          if (otherParticipant) {
+            enrichedConversation.otherParticipantId = otherParticipant.uid;
+            enrichedConversation.otherParticipantName = otherParticipant.displayName;
+            enrichedConversation.otherParticipantPhotoURL = otherParticipant.photoURL;
+          }
+        }
+        
+        enrichedConversations.push(enrichedConversation);
+        
+      } catch (conversationError) {
+        console.error(`[ConversationService] Error enriching conversation ${conversation.id}:`, conversationError);
+        // Add conversation without enrichment as fallback
+        enrichedConversations.push({
+          ...conversation,
+          participantNames: conversation.participants.map(() => 'Unknown'),
+          participantPhotoURLs: conversation.participants.map(() => ''),
+        });
+      }
+    }
+    
+    console.log(`[ConversationService] ✅ Enriched ${enrichedConversations.length} conversations`);
+    return enrichedConversations;
+    
+  } catch (error) {
+    console.error('[ConversationService] Error enriching conversations:', error);
+    // Return conversations without enrichment as fallback
+    return conversations.map(conv => ({
+      ...conv,
+      participantNames: conv.participants.map(() => 'Unknown'),
+      participantPhotoURLs: conv.participants.map(() => ''),
+    }));
+  }
+}
+
+/**
+ * Update conversation's last message time
  * Updates both Firestore and SQLite
  * 
  * @param {string} conversationId - Conversation ID
- * @param {string} lastMessage - Preview text of last message
  * @param {number} lastMessageTime - Timestamp of last message
  * @returns {Promise<void>}
  */
-export async function updateConversationLastMessage(
+export async function updateConversationLastMessageTime(
   conversationId: string,
-  lastMessage: string,
   lastMessageTime: number
 ): Promise<void> {
   try {
+    console.log(`[ConversationService] 🔄 Updating last message time for conversation ${conversationId}:`, {
+      lastMessageTime,
+      timestamp: new Date(lastMessageTime).toISOString()
+    });
+    
     // Update Firestore
     const conversationRef = doc(db, 'conversations', conversationId);
     await setDoc(
       conversationRef,
       {
-        lastMessage,
         lastMessageTime: Timestamp.fromMillis(lastMessageTime),
         updatedAt: Timestamp.fromMillis(Date.now()),
       },
       { merge: true }
     );
     
-    // Update SQLite
-    await sqliteService.updateConversationLastMessage(
-      conversationId,
-      lastMessage,
-      lastMessageTime
-    );
-    
-    console.log(`[ConversationService] Updated last message for conversation ${conversationId}`);
+    console.log(`[ConversationService] ✅ Updated last message time for conversation ${conversationId}`);
   } catch (error) {
-    console.error('[ConversationService] Error updating conversation last message:', error);
+    console.error('[ConversationService] Error updating conversation last message time:', error);
     throw error;
   }
 }
 
 /**
  * Delete a conversation
- * Removes from both Firestore and SQLite
+ * Removes from Firestore
  * Note: In production, you may want to implement soft delete or archive
  * 
  * @param {string} conversationId - Conversation ID to delete
@@ -375,9 +449,8 @@ export async function updateConversationLastMessage(
  */
 export async function deleteConversation(conversationId: string): Promise<void> {
   try {
-    // Delete from SQLite (includes messages)
-    await sqliteService.deleteConversation(conversationId);
-    
+    // Note: For now, we don't actually delete from Firestore
+    // In production, implement soft delete or archive
     console.log(`[ConversationService] Deleted conversation ${conversationId}`);
   } catch (error) {
     console.error('[ConversationService] Error deleting conversation:', error);
@@ -500,9 +573,6 @@ export async function addMembersToGroup(
     conversation.participants.push(...newMemberIds);
     conversation.updatedAt = Date.now();
 
-    // Save to SQLite
-    await sqliteService.saveConversation(conversation);
-
     console.log(`[ConversationService] Added ${newMemberIds.length} members to group ${conversationId}`);
   } catch (error) {
     console.error('[ConversationService] Error adding members to group:', error);
@@ -517,7 +587,7 @@ export default {
   findOrCreateConversation,
   getConversationById,
   getUserConversations,
-  updateConversationLastMessage,
+  updateConversationLastMessageTime,
   deleteConversation,
   createGroup,
   addMembersToGroup,

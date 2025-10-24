@@ -16,6 +16,7 @@ export interface User {
   lastSeen: number;
   createdAt: number;
   expoPushTokens?: string[]; // Optional - only needed for push notifications
+  preferredLanguage?: string; // ISO 639-1 language code (e.g., 'en', 'es', 'zh'). Default: 'en'
 }
 
 /**
@@ -30,6 +31,7 @@ export interface UserProfile {
   lastSeen: Timestamp;
   createdAt: Timestamp;
   expoPushTokens?: string[]; // Optional - only needed for push notifications
+  preferredLanguage?: string; // ISO 639-1 language code (e.g., 'en', 'es', 'zh'). Default: 'en'
 }
 
 /**
@@ -49,5 +51,6 @@ export interface UpdateUserData {
   photoURL?: string;
   online?: boolean;
   lastSeen?: Timestamp;
+  preferredLanguage?: string; // ISO 639-1 language code
 }
 
