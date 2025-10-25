@@ -90,6 +90,11 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
+      {/* App Header */}
+      <View style={styles.appHeader}>
+        <Text style={styles.appTitle}>International Communicator</Text>
+      </View>
+      
       <View style={styles.profileInfo}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
@@ -142,6 +147,17 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     backgroundColor: '#fff',
+  },
+  appHeader: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  appTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    textAlign: 'center',
   },
   profileInfo: {
     alignItems: 'center',

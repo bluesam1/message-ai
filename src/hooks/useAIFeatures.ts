@@ -190,7 +190,8 @@ export function useAIFeatures() {
     }));
 
     try {
-      const definition = await defineMessageSlang(message);
+      const userLanguage = user ? await getUserLanguage(user.uid) : 'en';
+      const definition = await defineMessageSlang(message, userLanguage);
       
       setAIState((prev) => ({
         ...prev,

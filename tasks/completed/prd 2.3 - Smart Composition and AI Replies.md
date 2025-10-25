@@ -26,14 +26,24 @@ Enhance message composition with AI-powered tone control and intelligent reply s
 - User can accept, reject, or edit before sending
 - System remembers preferred tone per conversation
 
+**Tone Adjustment Mode (Real-time)**
+- User enables tone adjustment mode in settings
+- As user types, system automatically generates tone-adjusted version
+- Debounced every 2 seconds to avoid excessive API calls
+- Rewritten message appears above text input as a suggestion chip
+- User can tap chip to replace current message with adjusted version
+- User can disable real-time mode at any time
+
 **Technical Requirements**
 - Add "Rephrase" button to message composer toolbar
 - Create modal with "Formal" and "Casual" options
-- Call Cloud Function to rewrite message using OpenAI
+- Call Cloud Function `/rephraseMessage` to rewrite message using OpenAI
 - Display preview of rewritten message
 - Allow user to accept or reject rewrite
 - Store tone preference in conversation `aiPrefs.defaultTone`
-- Pre-apply preferred tone for future messages (with opt-out)
+- Implement real-time tone adjustment with 2-second debounce
+- Display tone-adjusted suggestions above message input
+- Allow user to toggle real-time mode on/off
 
 ### Advanced AI Capability: Context-Aware Smart Replies v2
 
@@ -62,9 +72,10 @@ This advanced feature demonstrates sophisticated AI orchestration:
 - Read conversation `aiPrefs` for language and tone
 - Analyze conversation context and sentiment
 - Generate 3 diverse, relevant reply options
-- Filter responses for quality and appropriateness
-- Cache replies for quick re-display (invalidate on new message)
+- Cache replies per conversation per user (invalidate on new message)
 - Update UI with chips above message input
+- Implement 2-second debounce for reply generation
+- Handle API failures with fallback message: "AI had a hard time fulfilling your request. Try again later."
 
 ---
 
@@ -79,7 +90,19 @@ Update `aiPrefs` object:
 aiPrefs: {
   ...existing fields,
   defaultTone?: 'formal' | 'casual' | 'neutral',  // User's preferred tone
+  realTimeToneAdjustment?: boolean,                // Enable real-time tone suggestions
   lastReplyStyle?: string                         // Track reply style for learning
+}
+```
+
+**conversations collection:**
+Add smart replies cache per conversation:
+
+```typescript
+smartRepliesCache?: {
+  replies: string[],
+  lastUpdated: Timestamp,
+  userId: string
 }
 ```
 
@@ -93,8 +116,7 @@ aiMeta: {
     original: string,
     formal?: string,
     casual?: string
-  },
-  smartReplies?: string[]  // Cache generated replies for this message
+  }
 }
 ```
 
@@ -109,6 +131,8 @@ aiMeta: {
 **US-039:** As a user, I want to preview the rephrased message before accepting it.
 
 **US-040:** As a user, I want the system to remember my tone preference so future messages can be pre-adjusted.
+
+**US-040a:** As a user, I can enable real-time tone adjustment to see suggestions as I type.
 
 **US-041:** As a user, I see 3 quick reply suggestions that match the conversation context.
 
@@ -126,12 +150,16 @@ aiMeta: {
 - [ ] Formality adjustment produces natural, appropriate rewrites
 - [ ] Preview modal allows user to accept/reject rephrased message
 - [ ] Tone preference persists per conversation
+- [ ] Real-time tone adjustment works with 2-second debounce
+- [ ] Tone-adjusted suggestions appear above message input
+- [ ] User can toggle real-time mode on/off
 - [ ] Smart replies display above message input
 - [ ] 3 diverse, relevant replies generated
 - [ ] Replies match conversation language (80%+ accuracy)
 - [ ] Replies reflect conversation tone
-- [ ] Replies refresh on new message (with debounce to avoid excessive calls)
+- [ ] Replies refresh on new message (with 2-second debounce)
 - [ ] User can tap chip to insert reply into composer
+- [ ] API failures show fallback message instead of crashing
 
 ### Performance Targets
 | Metric | Target | Maximum |
@@ -156,6 +184,15 @@ aiMeta: {
 - Preview screen showing original vs. rephrased side-by-side
 - "Use This" and "Cancel" buttons
 - Optional: "Always use [formal/casual] tone" checkbox
+- Settings toggle for "Real-time tone adjustment"
+
+### Real-time Tone Adjustment UI
+- Tone-adjusted suggestion chip appears above message input
+- Chip shows "Formal version" or "Casual version" with preview
+- Tap chip to replace current message with adjusted version
+- Chip disappears after user continues typing
+- Loading state while generating adjustment
+- Toggle in settings to enable/disable feature
 
 ### Smart Replies UI
 - Three pill-shaped chips above message input
@@ -165,11 +202,14 @@ aiMeta: {
 - Tap chip inserts text into composer (cursor at end)
 - Chips disappear after user starts typing (to avoid clutter)
 - Empty state if replies unavailable ("Thinking...")
+- Fallback message on API failure: "AI had a hard time fulfilling your request. Try again later."
 
 ### Composer Layout
 ```
 ┌──────────────────────────────────────┐
 │  [Chip 1]  [Chip 2]  [Chip 3]       │ ← Smart Replies
+├──────────────────────────────────────┤
+│  [Tone-adjusted suggestion chip]     │ ← Real-time Tone (if enabled)
 ├──────────────────────────────────────┤
 │  Type a message...                   │ ← Message Input
 ├──────────────────────────────────────┤
@@ -198,6 +238,9 @@ aiMeta: {
 - [ ] Test with very long messages (100+ words)
 - [ ] Test with messages in multiple languages
 - [ ] Verify tone preference saves and applies
+- [ ] Test real-time tone adjustment with 2-second debounce
+- [ ] Test tone suggestion chip appears and disappears correctly
+- [ ] Test toggling real-time mode on/off
 
 ### Smart Replies Testing
 - [ ] Test in short conversations (2-3 messages)
@@ -220,6 +263,8 @@ aiMeta: {
 - [ ] Test cache effectiveness (repeated views use cached replies)
 - [ ] Measure token usage per request
 - [ ] Verify UI remains responsive during generation
+- [ ] Test API failure scenarios with fallback message
+- [ ] Verify 2-second debounce works correctly for both features
 
 ---
 
@@ -238,19 +283,23 @@ aiMeta: {
 
 ### Cost Efficiency
 - Rephrase: ~50-100 tokens per request
+- Real-time tone adjustment: ~50-100 tokens per request (2-second debounce)
 - Smart replies: ~200-400 tokens per request
 - Target cost per use: < $0.03
 - Cache hit rate for repeated views: > 50%
+- Debounce reduces API calls by ~70% for real-time features
 
 ---
 
 ## 🔐 Security & Privacy Considerations
 
-- Message content sent to OpenAI only when user explicitly requests rephrase
+- Message content sent to OpenAI only when user explicitly requests rephrase or enables real-time mode
 - Smart replies generated server-side (no client-side API keys)
 - Rate limiting per user to prevent abuse
 - Conversation context limited to last 10 messages (privacy)
 - No storage of rejected rephrases or unused replies
+- Real-time tone adjustment respects user privacy settings
+- API failures handled gracefully without exposing internal errors
 
 ---
 
@@ -259,8 +308,10 @@ aiMeta: {
 - [ ] Update README with smart composition features
 - [ ] Document tone preference system
 - [ ] Create user guide for formality adjustment
+- [ ] Document real-time tone adjustment feature
 - [ ] Document smart replies generation workflow
 - [ ] Add troubleshooting guide for common issues
+- [ ] Document API failure handling and fallback behavior
 
 ---
 
@@ -270,10 +321,12 @@ For sub-phase completion, demonstrate:
 
 1. **Formality Adjustment:** Type casual message, rephrase to formal, show preview, send
 2. **Tone Persistence:** Show conversation preferences save and apply
-3. **Smart Replies Generation:** Open chat, see 3 relevant replies appear
-4. **Reply Insertion:** Tap smart reply chip, edit, send
-5. **Context Awareness:** Send different messages, show replies adapt to context
-6. **Multi-Language:** Test smart replies in English and one other language
+3. **Real-time Tone Adjustment:** Enable feature, type message, show tone suggestion chip appears
+4. **Smart Replies Generation:** Open chat, see 3 relevant replies appear
+5. **Reply Insertion:** Tap smart reply chip, edit, send
+6. **Context Awareness:** Send different messages, show replies adapt to context
+7. **Multi-Language:** Test smart replies in English and one other language
+8. **API Failure Handling:** Simulate API failure, show fallback message
 
 ---
 
@@ -283,10 +336,12 @@ For sub-phase completion, demonstrate:
 - [ ] Cloud Function `/generateSmartReplies` deployed
 - [ ] UI components integrated into message composer
 - [ ] Formality adjustment modal implemented
+- [ ] Real-time tone adjustment implemented
 - [ ] Smart reply chips implemented
-- [ ] Firestore schema updated (aiPrefs.defaultTone)
-- [ ] Error handling tested (API failures, inappropriate content)
+- [ ] Firestore schema updated (aiPrefs.defaultTone, realTimeToneAdjustment, smartRepliesCache)
+- [ ] Error handling tested (API failures with fallback message)
 - [ ] Cost monitoring configured
+- [ ] 2-second debounce implemented for both features
 
 ---
 

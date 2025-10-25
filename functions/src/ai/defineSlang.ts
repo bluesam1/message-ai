@@ -12,6 +12,7 @@ import {
 interface DefineSlangRequest {
   text: string;
   messageId?: string;
+  userLanguage?: string; // User's preferred language for the definition
 }
 
 interface DefineSlangResponse {
@@ -37,11 +38,19 @@ export const defineSlang = https.onCall(
 
       // Validate input
       const text = validateTextInput(request.data.text, 'text', 1, 500);
+      const userLanguage = request.data.userLanguage || 'en';
 
-      console.log(`Slang definition request from ${userId}: ${text.length} chars`);
+      console.log(`Slang definition request from ${userId}: ${text.length} chars (user language: ${userLanguage})`);
 
-      // Create OpenAI prompt
+      // Create language-aware OpenAI prompt
       const systemPrompt = `You are a helpful language assistant. Define slang terms, idioms, or colloquial phrases in simple, clear language.
+
+IMPORTANT INSTRUCTIONS:
+- Provide your definition in ${userLanguage} language
+- When referencing the original text, preserve the exact words/phrases in quotes
+- Focus on explaining the meaning and usage context
+- If the phrase has cultural or regional variations, mention them
+
 Provide:
 - A concise definition (1-2 sentences)
 - The context where it's commonly used
@@ -50,7 +59,7 @@ Provide:
 If you cannot confidently explain the phrase, respond with: "Unable to explain this phrase."
 Keep your response under 100 words.`;
 
-      const userPrompt = `Define this slang or idiom: "${text}"`;
+      const userPrompt = `Define this slang or idiom in ${userLanguage}: "${text}"`;
 
       try {
         // Call OpenAI
