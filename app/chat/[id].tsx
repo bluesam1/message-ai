@@ -11,7 +11,7 @@ import { useAuth } from '../../src/store/AuthContext';
 import useMessages from '../../src/hooks/useMessages';
 import useConversation from '../../src/hooks/useConversation';
 import MessageList from '../../src/components/chat/MessageList';
-import MessageInput from '../../src/components/chat/MessageInput';
+import MessageComposer from '../../src/components/chat/MessageComposer';
 import OfflineBanner from '../../src/components/chat/OfflineBanner';
 import GroupInfo from '../../src/components/chat/GroupInfo';
 import PresenceIndicator from '../../src/components/users/PresenceIndicator';
@@ -289,6 +289,7 @@ export default function ChatScreen() {
               {/* Auto-Translate Toggle */}
               <TouchableOpacity
                 onPress={handleToggleAutoTranslate}
+                onLongPress={() => setShowTranslateInfo(true)}
                 style={[
                   styles.translateToggle,
                   autoTranslatePrefs?.autoTranslate && styles.translateToggleActive
@@ -303,13 +304,6 @@ export default function ChatScreen() {
                 >
                   🌐
                 </Animated.Text>
-              </TouchableOpacity>
-              {/* Info Icon */}
-              <TouchableOpacity
-                onPress={() => setShowTranslateInfo(true)}
-                style={styles.infoButton}
-              >
-                <Text style={styles.infoButtonText}>ⓘ</Text>
               </TouchableOpacity>
             </View>
           ),
@@ -369,9 +363,12 @@ export default function ChatScreen() {
         )}
 
         {/* Message Input */}
-        <MessageInput
+        <MessageComposer
           onSend={handleSendMessage}
           disabled={conversationLoading || !user}
+          conversationId={id as string}
+          userId={user?.uid || ''}
+          smartRepliesEnabled={true}
         />
       </KeyboardAvoidingView>
 
@@ -556,14 +553,6 @@ const styles = StyleSheet.create({
   },
   translateToggleTextActive: {
     opacity: 1, // Full color when on
-  },
-  infoButton: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-  },
-  infoButtonText: {
-    fontSize: 16,
-    color: '#8E8E93',
   },
   infoModalOverlay: {
     flex: 1,

@@ -1,6 +1,6 @@
-# MessageAI
+# International Communicator
 
-A real-time messaging application built with React Native (Expo) and Firebase. Features include one-on-one and group messaging, **native Firestore offline support**, read receipts, presence indicators, image sharing, push notifications, and **AI-powered auto-translation, cultural context, and slang definitions**.
+A real-time messaging application built with React Native (Expo) and Firebase. Features include one-on-one and group messaging, **native Firestore offline support**, read receipts, presence indicators, image sharing, push notifications, and **AI-powered smart communication assistance** including auto-translation, cultural context, slang definitions, smart replies, and tone adjustment.
 
 ## 🚀 Quick Start
 
@@ -330,6 +330,33 @@ The following files contain secrets and are in `.gitignore`:
 - ✅ **UI/UX Improvements**: Enhanced user experience with simplified interfaces
 
 **Status:** Deployed and working! Auto-translation is live with comprehensive UI/UX enhancements.
+
+### Phase 2.3 (Smart Communication) - Complete ✅
+
+- ✅ **Smart Replies**: Context-aware reply suggestions in user's preferred language
+- ✅ **Tone Adjustment**: Manual formality/casualness adjustment with rephrase modal
+- ✅ **Real-time Regeneration**: Smart replies automatically update when conversation changes
+- ✅ **User Language Preferences**: Respects each user's target language for personalized suggestions
+- ✅ **Native Language Names**: Language selectors display names in their native scripts
+- ✅ **Professional UI**: Gray chips with dashed borders for clickable appearance
+- ✅ **Debounced API Calls**: 2-second debounce prevents excessive requests
+- ✅ **Intelligent Caching**: 5-minute cache per conversation per user
+- ✅ **App Branding**: "International Communicator" identity with profile header
+- ✅ **Performance Optimization**: Rate limiting, cost monitoring, and offline support
+
+**Status:** Deployed and working! Smart communication features are live with comprehensive AI assistance.
+
+### Phase 2.4 (Language-Aware AI) - Complete ✅
+
+- ✅ **Slang Definitions**: Now provide explanations in user's preferred language
+- ✅ **Cultural Context**: Enhanced to respect user language preferences
+- ✅ **Translation Services**: All AI features consistently use user's target language
+- ✅ **Consistent Interface**: Unified pattern across all AI functions (translate, explain, define)
+- ✅ **Language-Aware Prompts**: AI receives clear instructions about target language
+- ✅ **Cultural Preservation**: Maintains original text while explaining in user's language
+- ✅ **Fallback Handling**: Graceful degradation to English when user language not specified
+
+**Status:** Deployed and working! All AI features now provide personalized responses in the user's preferred language.
 
 ## 📝 Git Workflow
 

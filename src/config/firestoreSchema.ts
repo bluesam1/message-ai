@@ -40,8 +40,14 @@
  *     [userId: string]: {
  *       targetLang: string,       // Target language for auto-translation (ISO 639-1 code, e.g., "en", "es", "fr")
  *       autoTranslate: boolean,   // Enable/disable auto-translation for incoming messages
- *       defaultTone?: string      // Default tone for AI replies (future feature in PRD 2.3)
+ *       defaultTone?: 'formal' | 'casual' | 'neutral',  // Default tone for AI replies (added in PRD 2.3)
+ *       realTimeToneAdjustment?: boolean  // Enable real-time tone adjustment suggestions (added in PRD 2.3)
  *     }
+ *   },
+ *   smartRepliesCache?: {         // Cached smart replies for quick access (added in PRD 2.3)
+ *     replies: string[],          // Array of 3 smart reply suggestions
+ *     lastUpdated: timestamp,    // When replies were last generated
+ *     userId: string              // User ID who requested the replies
  *   }
  * }
  * 
@@ -108,7 +114,12 @@
  *     },
  *     explanation?: string,              // Cultural context explanation
  *     slangDefinition?: string,          // Slang/idiom definition
- *     feedback?: "positive" | "negative" // User rating of translation quality (added in PRD 2.2)
+ *     feedback?: "positive" | "negative", // User rating of translation quality (added in PRD 2.2)
+ *     rephraseHistory?: {               // History of rephrase attempts (added in PRD 2.3)
+ *       original: string,               // Original message text
+ *       formal?: string,                // Formal version (if generated)
+ *       casual?: string                 // Casual version (if generated)
+ *     }
  *   }
  * }
  * 
@@ -168,7 +179,7 @@
  * Schema:
  * {
  *   userId: string                     // User ID who made the request
- *   featureType: "translate" | "explain" | "define"  // Type of AI feature used
+ *   featureType: "translate" | "explain" | "define" | "rephrase" | "smart_replies"  // Type of AI feature used
  *   inputTokens: number                // Number of input tokens used
  *   outputTokens: number               // Number of output tokens used
  *   totalTokens: number                // Total tokens (input + output)

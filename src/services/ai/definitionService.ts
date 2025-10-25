@@ -6,6 +6,7 @@ import { Message } from '../../types/message';
 interface DefineSlangRequest {
   text: string;
   messageId?: string;
+  userLanguage?: string; // User's preferred language for the definition
 }
 
 interface DefineSlangResponse {
@@ -17,9 +18,10 @@ interface DefineSlangResponse {
  * Get definition for slang/idiom in a message
  * Checks cache first, then calls Cloud Function if needed
  * @param message - Message to define
+ * @param userLanguage - User's preferred language for the definition
  * @returns Slang/idiom definition
  */
-export async function defineMessageSlang(message: Message): Promise<string> {
+export async function defineMessageSlang(message: Message, userLanguage?: string): Promise<string> {
   try {
     // Check if definition is already cached
     const cachedDefinition = message.aiMeta?.slangDefinition;
@@ -39,6 +41,7 @@ export async function defineMessageSlang(message: Message): Promise<string> {
     const result = await defineFn({
       text: message.text,
       messageId: message.id,
+      userLanguage: userLanguage,
     });
 
     const definition = result.data.definition;

@@ -29,6 +29,7 @@ function getAPIKey(): string {
     console.warn('Firebase config not available:', error);
   }
   
+  // No fallback - require proper configuration
   throw new Error('OPENAI_API_KEY not found in environment variables or Firebase config');
 }
 

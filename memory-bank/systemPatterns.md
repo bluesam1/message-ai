@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-MessageAI follows a **layered architecture** with clear separation between UI, business logic, and data persistence.
+**International Communicator** (formerly MessageAI) follows a **layered architecture** with clear separation between UI, business logic, and data persistence. The app now features comprehensive AI-powered communication assistance including smart replies, tone adjustment, and real-time translation.
 
 ```
 ┌─────────────────────────────────────┐
@@ -763,6 +763,152 @@ export const translateMessage = onCall(async (request) => {
 ---
 
 **Key Principle:** These patterns prioritize performance and user experience while maintaining code clarity and testability.
+
+## AI-Powered Smart Communication Features
+
+### Smart Replies System
+**Pattern:** Context-aware reply suggestions with user language preferences
+
+**Implementation:**
+```typescript
+// Cloud Function: generateSmartReplies
+export const generateSmartReplies = https.onCall(async (request) => {
+  const { conversationId, userId } = request.data;
+  
+  // Get user's preferred language from conversation aiPrefs
+  const userPrefs = conversationData.aiPrefs?.[userId];
+  const userLanguage = userPrefs?.targetLang || 'en';
+  
+  // Generate context-aware replies in user's language
+  const systemPrompt = `Generate 3 diverse, relevant reply suggestions 
+  for a specific user based on the conversation context.
+  
+  REQUIREMENTS:
+  - Write ALL replies in the target user's preferred language: ${userLanguage}
+  - Be contextually relevant to the recent messages
+  - Be diverse (different approaches/angles)
+  - Sound like the target user would naturally respond
+  - Make replies sound like clickable suggestions (not full sentences)`;
+  
+  // Cache replies in conversation document
+  await conversationRef.update({
+    smartRepliesCache: {
+      replies,
+      lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+      userId,
+    },
+  });
+});
+```
+
+**Key Features:**
+1. **User Language Preferences**: Respects each user's `targetLang` setting
+2. **Real-time Regeneration**: Listens for new messages and regenerates replies
+3. **Debounced API Calls**: 2-second debounce prevents excessive requests
+4. **Caching Strategy**: 5-minute cache per conversation per user
+5. **Fallback Handling**: Graceful degradation with user-friendly error messages
+
+### Tone Adjustment System
+**Pattern:** Real-time message rephrasing for formality/casualness
+
+**Implementation:**
+```typescript
+// Cloud Function: rephraseMessage
+export const rephraseMessage = https.onCall(async (request) => {
+  const { text, tone } = request.data;
+  
+  const systemPrompt = `You are a helpful assistant that rephrases messages. 
+  Rewrite the following message to be more ${tone}. 
+  Preserve the original meaning but adjust the tone. 
+  Respond ONLY with the rephrased text, no explanations.`;
+  
+  // Store rephrase history in message aiMeta
+  await messageRef.update({
+    'aiMeta.rephraseHistory': {
+      original: text,
+      [tone]: rephrasedText,
+    }
+  });
+});
+```
+
+**UI Components:**
+- **SmartReplyChips**: Gray background with dashed border for clickable appearance
+- **RephraseModal**: Manual tone adjustment with formal/casual options
+- **ToneSuggestionChip**: Real-time suggestions (currently disabled)
+
+### Language Localization
+**Pattern:** Native language names for authentic user experience
+
+**Implementation:**
+```typescript
+// Language names in their native scripts
+const languageNames = {
+  'en': 'English',
+  'es': 'Español',
+  'fr': 'Français', 
+  'de': 'Deutsch',
+  'ja': '日本語',
+  'ko': '한국어',
+  'zh': '中文',
+  'ar': 'العربية',
+  'ru': 'Русский',
+  'hi': 'हिन्दी',
+  // ... more languages
+};
+```
+
+### App Branding & Identity
+**Pattern:** Consistent "International Communicator" branding
+
+**Implementation:**
+- **App Name**: "Message AI: International Communicator" in app.json
+- **Profile Header**: Large "International Communicator" title on Profile screen
+- **Native Language Support**: All language selectors show native names
+- **Professional UI**: Clean, modern interface with proper spacing and typography
+
+### Language-Aware AI Features
+**Pattern:** All AI features respect user's preferred language for personalized responses
+
+**Implementation:**
+```typescript
+// Consistent pattern across all AI functions
+interface AIRequest {
+  text: string;
+  messageId?: string;
+  userLanguage?: string; // User's preferred language
+}
+
+// Cloud Function: defineSlang (updated)
+export const defineSlang = https.onCall(async (request) => {
+  const userLanguage = request.data.userLanguage || 'en';
+  
+  const systemPrompt = `You are a helpful language assistant. 
+  Define slang terms, idioms, or colloquial phrases in simple, clear language.
+
+  IMPORTANT INSTRUCTIONS:
+  - Provide your definition in ${userLanguage} language
+  - When referencing the original text, preserve the exact words/phrases in quotes
+  - Focus on explaining the meaning and usage context
+  - If the phrase has cultural or regional variations, mention them`;
+  
+  const userPrompt = `Define this slang or idiom in ${userLanguage}: "${text}"`;
+});
+```
+
+**Key Features:**
+1. **User Language Preferences**: All AI functions (translate, explain, define) respect user's `targetLang`
+2. **Consistent Interface**: Same pattern across all AI services and hooks
+3. **Language-Aware Prompts**: AI receives clear instructions about target language
+4. **Cultural Context**: Preserves original text while explaining in user's language
+5. **Fallback Handling**: Defaults to English if user language not specified
+
+### Performance Optimizations
+1. **Debounced API Calls**: Prevents excessive requests during typing
+2. **Intelligent Caching**: 5-minute cache for smart replies, permanent cache for translations
+3. **Rate Limiting**: 10 requests/minute per user for AI features
+4. **Cost Monitoring**: Token usage tracking per user and feature
+5. **Offline Support**: Firestore offline persistence for all data
 
 
 

@@ -469,4 +469,6 @@ export { defineSlang } from './ai/defineSlang';
 export { detectLanguage } from './ai/detectLanguage';
 export { autoTranslateOrchestrator } from './ai/autoTranslateOrchestrator';
 export { batchTranslateMessages } from './ai/batchTranslateMessages';
+export { rephraseMessage } from './ai/rephraseMessage';
+export { generateSmartReplies } from './ai/generateSmartReplies';
 

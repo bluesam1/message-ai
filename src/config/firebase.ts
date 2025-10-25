@@ -16,6 +16,7 @@ import { getAuth } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getDatabase } from 'firebase/database';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 // Firebase configuration - hardcoded for now (TODO: fix .env loading)
 const firebaseConfig = {
@@ -82,6 +83,22 @@ export const storage = getStorage(app);
 // Initialize Realtime Database for presence tracking
 // Uses .info/connected and onDisconnect() for reliable disconnect detection
 export const rtdb = getDatabase(app);
+
+// Initialize Firebase Functions
+export const functions = getFunctions(app);
+
+// Connect to Functions emulator in development (only if explicitly enabled)
+if (__DEV__ && process.env.EXPO_PUBLIC_USE_FUNCTIONS_EMULATOR === 'true') {
+  try {
+    connectFunctionsEmulator(functions, 'localhost', 5001);
+    console.log('🔧 Connected to Functions emulator');
+  } catch (error) {
+    // Emulator might already be connected
+    console.log('📡 Using production Functions');
+  }
+} else if (__DEV__) {
+  console.log('📡 Using production Functions (emulator disabled)');
+}
 
 // Export the app instance if needed
 export default app;

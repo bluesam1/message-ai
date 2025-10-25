@@ -69,7 +69,7 @@ export function calculateCost(
  */
 export async function logTokenUsage(
   userId: string,
-  featureType: 'translate' | 'explain' | 'define' | 'detect_language' | 'auto_detect_language' | 'auto_translate',
+  featureType: 'translate' | 'explain' | 'define' | 'detect_language' | 'auto_detect_language' | 'auto_translate' | 'rephrase' | 'smart_replies',
   model: string,
   inputTokens: number,
   outputTokens: number
