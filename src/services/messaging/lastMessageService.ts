@@ -144,8 +144,8 @@ export async function getLastMessagePreview(
       };
     }
     
-    // Check if translation already exists in message.aiMeta
-    const existingTranslation = message.aiMeta?.translatedText?.[targetLang];
+    // Check if translation already exists in messageData.aiMeta
+    const existingTranslation = messageData.aiMeta?.translatedText?.[targetLang];
     if (existingTranslation) {
       console.log(`[LastMessageService] ✅ Using existing translation for ${targetLang}`);
       return {
