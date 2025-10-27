@@ -87,12 +87,7 @@ export async function logTokenUsage(
   };
 
   // Log to console for Cloud Functions logs
-  console.log(`AI Usage - ${featureType}:`, {
-    userId,
-    model,
-    tokens: totalTokens,
-    cost: `$${cost.toFixed(6)}`,
-  });
+  console.log(`AI Usage - ${featureType}: user=${userId}, model=${model}, tokens=${totalTokens}, cost=$${cost.toFixed(6)}`);
 
   // Store in Firestore for analytics
   try {

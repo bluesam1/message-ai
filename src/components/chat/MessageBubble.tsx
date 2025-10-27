@@ -9,7 +9,6 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, Pressable } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { Message } from '../../types/message';
 import { getRelativeTime } from '../../utils/messageUtils';
-import { TranslationView } from './TranslationView';
 import { TranslationToggle } from './TranslationToggle';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -35,13 +34,6 @@ interface MessageBubbleProps {
   totalParticipants?: number;
   /** Callback when message is long-pressed */
   onLongPress?: () => void;
-  /** Translation state for this message */
-  translationState?: {
-    translatedText: string | null;
-    targetLanguage: string;
-    isLoading: boolean;
-    error: string | null;
-  };
   /** Auto-translate preferences for the conversation */
   autoTranslatePrefs?: {
     targetLang: string;
@@ -65,7 +57,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
     isRead = false,
     totalParticipants,
     onLongPress,
-    translationState,
     autoTranslatePrefs,
   }) => {
     // Check if message has auto-translation
@@ -77,7 +68,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
       message.aiMeta?.translatedText?.[autoTranslatePrefs.targetLang];
 
     // State for showing original text modal
-    const [showOriginalModal, setShowOriginalModal] = React.useState(false);
+    // State for showing original text inline
+    const [showOriginalInline, setShowOriginalInline] = React.useState(false);
 
     // Handle translation feedback
     const handleFeedback = async (feedback: 'positive' | 'negative') => {
@@ -89,6 +81,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
         console.log(`[MessageBubble] Saved translation feedback: ${feedback}`);
       } catch (error) {
         console.error('[MessageBubble] Error saving feedback:', error);
+      }
+    };
+
+    // Handle message tap to show/hide original text inline
+    const handleMessageTap = () => {
+      if (hasAutoTranslation) {
+        setShowOriginalInline(!showOriginalInline);
       }
     };
 
@@ -200,81 +199,125 @@ const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
         {/* Spacer for grouped messages */}
         {!isOwnMessage && isGrouped && <View style={styles.avatarSpacer} />}
 
-        {/* Message Bubble Container */}
-        <View style={styles.bubbleWrapper}>
-          {/* Message Bubble */}
-          <Pressable
-            onLongPress={onLongPress}
-            style={[
-              styles.bubble,
-              isOwnMessage ? styles.ownBubble : styles.otherBubble,
-            ]}
-          >
-            {/* Globe Icon for Auto-Translated Messages */}
-            {hasAutoTranslation && (
+        {hasAutoTranslation && showOriginalInline ? (
+          /* Full-width side-by-side layout for translated messages */
+          <View style={styles.fullWidthSideBySideContainer}>
+            <View style={styles.sideBySideContainer}>
+              {/* Translated Message Bubble (left side) */}
+              <TouchableOpacity 
+                style={[styles.translatedBubble, isOwnMessage ? styles.ownTranslatedBubble : styles.otherTranslatedBubble]}
+                onPress={handleMessageTap}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.translatedText, isOwnMessage && styles.ownTranslatedText]}>
+                  {message.aiMeta!.translatedText![autoTranslatePrefs!.targetLang] || 'No translated text'}
+                </Text>
+
+                {/* Timestamp and Status */}
+                <View style={styles.metaContainer}>
+                  {showTimestamp && (
+                    <Text
+                      style={[
+                        styles.timestamp,
+                        isOwnMessage ? styles.ownTimestamp : styles.otherTimestamp,
+                      ]}
+                    >
+                      {getRelativeTime(message.timestamp)}
+                    </Text>
+                  )}
+                  {renderStatusIndicator()}
+                </View>
+
+                {/* Group Read Receipt */}
+                {renderGroupReadReceipt()}
+              </TouchableOpacity>
+
+              {/* Original Text Container (right side) */}
+              <View style={styles.originalTextContainer}>
+                <View style={[styles.originalDashedContainer, isOwnMessage && styles.ownOriginalDashedContainer]}>
+                  <Text style={[styles.originalText, isOwnMessage && styles.ownOriginalText]}>
+                    {message.text || 'No original text'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            {/* Globe Icon - only show when original text is NOT displayed */}
+            {!showOriginalInline && (
               <TouchableOpacity
-                style={styles.globeIcon}
-                onPress={() => setShowOriginalModal(true)}
+                style={styles.globeIconRight}
+                onPress={handleMessageTap}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.globeEmoji}>🌐</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          /* Normal message bubble layout */
+          <View style={styles.bubbleWrapper}>
+            <Pressable
+              onLongPress={onLongPress}
+              onPress={hasAutoTranslation ? handleMessageTap : undefined}
+              style={[
+                styles.bubble,
+                isOwnMessage ? styles.ownBubble : styles.otherBubble,
+              ]}
+            >
+              {/* Message Text or Auto-Translation */}
+              {hasAutoTranslation ? (
+                <TranslationToggle
+                  originalText={message.text}
+                  translatedText={message.aiMeta!.translatedText![autoTranslatePrefs!.targetLang]}
+                  targetLanguage={autoTranslatePrefs!.targetLang}
+                  isOwnMessage={isOwnMessage}
+                  feedback={message.aiMeta?.feedback}
+                  onFeedback={handleFeedback}
+                  showOriginalInline={false}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.messageText,
+                    isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                  ]}
+                >
+                  {message.text}
+                </Text>
+              )}
+
+              {/* Timestamp and Status */}
+              <View style={styles.metaContainer}>
+                {showTimestamp && (
+                  <Text
+                    style={[
+                      styles.timestamp,
+                      isOwnMessage ? styles.ownTimestamp : styles.otherTimestamp,
+                    ]}
+                  >
+                    {getRelativeTime(message.timestamp)}
+                  </Text>
+                )}
+                {renderStatusIndicator()}
+              </View>
+
+              {/* Group Read Receipt */}
+              {renderGroupReadReceipt()}
+            </Pressable>
+
+            {/* Globe Icon for Auto-Translated Messages - only show when original text is NOT displayed */}
+            {hasAutoTranslation && !showOriginalInline && (
+              <TouchableOpacity
+                style={styles.globeIconRight}
+                onPress={handleMessageTap}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Text style={styles.globeEmoji}>🌐</Text>
               </TouchableOpacity>
             )}
 
-            {/* Message Text or Auto-Translation */}
-            {hasAutoTranslation ? (
-              <TranslationToggle
-                originalText={message.text}
-                translatedText={message.aiMeta!.translatedText![autoTranslatePrefs!.targetLang]}
-                targetLanguage={autoTranslatePrefs!.targetLang}
-                isOwnMessage={isOwnMessage}
-                feedback={message.aiMeta?.feedback}
-                onFeedback={handleFeedback}
-                onShowOriginal={() => setShowOriginalModal(true)}
-                showOriginal={showOriginalModal}
-                onCloseModal={() => setShowOriginalModal(false)}
-              />
-            ) : (
-              <Text
-                style={[
-                  styles.messageText,
-                  isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-                ]}
-              >
-                {message.text}
-              </Text>
-            )}
-
-            {/* Timestamp and Status */}
-            <View style={styles.metaContainer}>
-              {showTimestamp && (
-                <Text
-                  style={[
-                    styles.timestamp,
-                    isOwnMessage ? styles.ownTimestamp : styles.otherTimestamp,
-                  ]}
-                >
-                  {getRelativeTime(message.timestamp)}
-                </Text>
-              )}
-              {renderStatusIndicator()}
-            </View>
-
-            {/* Group Read Receipt */}
-            {renderGroupReadReceipt()}
-          </Pressable>
-
-          {/* Translation View */}
-          {translationState && (
-            <TranslationView
-              originalText={message.text}
-              translatedText={translationState.translatedText}
-              isLoading={translationState.isLoading}
-              error={translationState.error}
-              targetLanguage={translationState.targetLanguage}
-            />
-          )}
-        </View>
+          </View>
+        )}
       </View>
     );
   }
@@ -307,6 +350,14 @@ const styles = StyleSheet.create({
   },
   bubbleWrapper: {
     maxWidth: '70%',
+  },
+  fullWidthWrapper: {
+    maxWidth: '100%',
+  },
+  fullWidthSideBySideContainer: {
+    width: '100%',
+    marginHorizontal: -16, // Counteract the container's paddingHorizontal: 16
+    paddingHorizontal: 16, // Add back some padding for the content
   },
   avatar: {
     width: 32,
@@ -397,8 +448,80 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   globeEmoji: {
-    fontSize: 10,
-    lineHeight: 10,
+    fontSize: 11,
+    lineHeight: 11,
+    color: '#007AFF',
+  },
+  globeIconRight: {
+    position: 'absolute',
+    top: 6,
+    right: -15,
+    zIndex: 10,
+    width: 14,
+    height: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sideBySideContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  translatedBubble: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 16,
+    position: 'relative',
+    minHeight: 40,
+    minWidth: 100,
+  },
+  otherTranslatedBubble: {
+    backgroundColor: '#F1F1F1',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  ownTranslatedBubble: {
+    backgroundColor: '#007AFF',
+  },
+  translatedText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#000',
+  },
+  ownTranslatedText: {
+    color: '#FFFFFF',
+  },
+  originalTextContainer: {
+    flex: 1,
+    minHeight: 40,
+    minWidth: 100,
+  },
+  originalLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#666',
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  originalDashedContainer: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#999',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  },
+  ownOriginalDashedContainer: {
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  originalText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#000',
+  },
+  ownOriginalText: {
+    color: '#FFFFFF',
   },
 });
 

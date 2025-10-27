@@ -1,214 +1,294 @@
 /**
- * useSmartReplies Hook
- * 
- * Manages smart replies state and API calls with debouncing
+ * React hook for smart replies state management
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { smartRepliesService } from '../services/ai/smartRepliesService';
-import { debounceSmartReplies } from '../utils/debounce';
-import { UseSmartRepliesReturn } from '../types/ai';
-import { db } from '../config/firebase';
-import { collection, query, where, orderBy, onSnapshot, limit } from 'firebase/firestore';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { SmartRepliesService, SmartRepliesState } from '../services/ai/smartRepliesService';
+import { RefreshSmartRepliesService } from '../services/ai/refreshSmartRepliesService';
 
-interface UseSmartRepliesOptions {
+export interface UseSmartRepliesOptions {
   conversationId: string;
   userId: string;
   enabled?: boolean;
-  debounceMs?: number;
+  autoRefresh?: boolean;
+  refreshInterval?: number; // in milliseconds
+}
+
+export interface UseSmartRepliesReturn {
+  // State
+  replies: string[];
+  loading: boolean;
+  error: string | null;
+  generatedAt: number | null;
+  contextAnalysis: SmartRepliesState['contextAnalysis'];
+  
+  // Actions
+  refresh: () => Promise<void>;
+  clearError: () => void;
+  generateReplies: () => Promise<void>;
+  clearReplies: () => void;
+  refreshReplies: () => Promise<void>;
+  manualRefresh: () => Promise<void>; // New manual refresh function
+  
+  // Status
+  hasReplies: boolean;
+  isExpired: boolean;
+  needsRefresh: boolean;
+  age: number; // in minutes
 }
 
 /**
- * Hook for managing smart replies functionality
- * @param options - Configuration options
- * @returns Smart replies state and methods
+ * Hook for managing smart replies state
  */
 export function useSmartReplies({
   conversationId,
   userId,
   enabled = true,
-  debounceMs = 2000,
+  autoRefresh = true,
+  refreshInterval = 5 * 60 * 1000 // 5 minutes
 }: UseSmartRepliesOptions): UseSmartRepliesReturn {
-  const [replies, setReplies] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Ref to track if we're currently generating replies
-  const isGeneratingRef = useRef(false);
-  
-  // Ref to store the current conversation ID to avoid stale closures
-  const conversationIdRef = useRef(conversationId);
-  const userIdRef = useRef(userId);
+  const [state, setState] = useState<SmartRepliesState>({
+    replies: [],
+    loading: true,
+    error: null,
+    generatedAt: null,
+    contextAnalysis: null
+  });
 
-  // Update refs when props change
-  useEffect(() => {
-    conversationIdRef.current = conversationId;
-    userIdRef.current = userId;
-  }, [conversationId, userId]);
+  const smartRepliesService = useRef(new SmartRepliesService());
+  const refreshSmartRepliesService = useRef(new RefreshSmartRepliesService());
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSubscribedRef = useRef(false);
 
   /**
-   * Generate smart replies with debouncing
+   * Refresh smart replies
    */
-  const generateReplies = useCallback(async () => {
-    if (!enabled || isGeneratingRef.current) {
-      console.log('[useSmartReplies] Skipping generation - enabled:', enabled, 'isGenerating:', isGeneratingRef.current);
+  const refresh = useCallback(async () => {
+    if (!enabled || !conversationId || !userId) {
       return;
     }
 
     try {
-      console.log('[useSmartReplies] Starting smart replies generation for conversation:', conversationIdRef.current, 'user:', userIdRef.current);
-      setLoading(true);
-      setError(null);
-      isGeneratingRef.current = true;
-
-      const response = await smartRepliesService.generateReplies(
-        conversationIdRef.current,
-        userIdRef.current
+      setState(prev => ({ ...prev, loading: true, error: null }));
+      
+      const newState = await smartRepliesService.current.getSmartReplies(
+        conversationId,
+        userId
       );
-      console.log('[useSmartReplies] Service response:', response);
-
-      if (response.replies && response.replies.length > 0) {
-        setReplies(response.replies);
-      } else {
-        setReplies([]);
-      }
-    } catch (err) {
-      console.error('Error generating smart replies:', err);
-      setError('Failed to generate smart replies');
-      setReplies([]);
-    } finally {
-      setLoading(false);
-      isGeneratingRef.current = false;
+      
+      setState(newState);
+    } catch (error) {
+      console.error('Failed to refresh smart replies:', error);
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: error instanceof Error ? error.message : 'Failed to refresh smart replies'
+      }));
     }
-  }, [enabled]);
+  }, [enabled, conversationId, userId]);
 
   /**
-   * Debounced version of generateReplies
+   * Clear error state
    */
-  const debouncedGenerateReplies = useCallback(
-    debounceSmartReplies(generateReplies),
-    [generateReplies]
-  );
-
-  /**
-   * Clear replies and reset state
-   */
-  const clearReplies = useCallback(() => {
-    setReplies([]);
-    setError(null);
-    setLoading(false);
+  const clearError = useCallback(() => {
+    setState(prev => ({ ...prev, error: null }));
   }, []);
 
   /**
-   * Get cached replies if available
+   * Manually refresh smart replies by triggering server-side generation
    */
-  const getCachedReplies = useCallback(async () => {
-    if (!enabled) {
+  const manualRefresh = useCallback(async () => {
+    if (!enabled || !conversationId || !userId) {
       return;
     }
 
     try {
-      const cached = await smartRepliesService.getCachedReplies(conversationId);
-      if (cached && cached.length > 0) {
-        setReplies(cached);
-        return true; // Found cached replies
+      setState(prev => ({ ...prev, loading: true, error: null }));
+      
+      const result = await refreshSmartRepliesService.current.refreshSmartReplies(
+        conversationId,
+        userId
+      );
+
+      if (result.success) {
+        // Update state with new replies
+        setState(prev => ({
+          ...prev,
+          replies: result.replies || [],
+          contextAnalysis: result.contextAnalysis ? {
+            ...result.contextAnalysis,
+            tone: result.contextAnalysis.tone as 'auto' | 'formal' | 'casual'
+          } : null,
+          generatedAt: Date.now(),
+          loading: false,
+          error: null
+        }));
+      } else {
+        setState(prev => ({
+          ...prev,
+          loading: false,
+          error: result.error || 'Failed to refresh smart replies'
+        }));
       }
-    } catch (err) {
-      console.error('Error getting cached replies:', err);
+    } catch (error) {
+      console.error('Failed to manually refresh smart replies:', error);
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: error instanceof Error ? error.message : 'Failed to refresh smart replies'
+      }));
     }
-    
-    return false; // No cached replies found
-  }, [conversationId, enabled]);
+  }, [enabled, conversationId, userId]);
 
   /**
-   * Get smart replies with fallback to generation
+   * Set up auto-refresh
    */
-  const getSmartReplies = useCallback(async () => {
-    if (!enabled) {
+  const setupAutoRefresh = useCallback(() => {
+    if (!autoRefresh || !enabled) {
       return;
     }
 
-    // Try to get cached replies first
-    const hasCached = await getCachedReplies();
-    if (hasCached) {
-      return;
+    // Clear existing timeout
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
     }
 
-    // Generate new replies if no cache
-    await generateReplies();
-  }, [enabled, getCachedReplies, generateReplies]);
+    // Set up new timeout
+    refreshTimeoutRef.current = setTimeout(() => {
+      refresh();
+    }, refreshInterval) as any;
+  }, [autoRefresh, enabled, refreshInterval, refresh]);
 
   /**
-   * Refresh replies by clearing cache and generating new ones
+   * Subscribe to smart replies updates
    */
-  const refreshReplies = useCallback(async () => {
-    if (!enabled) {
+  const subscribe = useCallback(() => {
+    if (!enabled || !conversationId || !userId || isSubscribedRef.current) {
       return;
     }
 
-    try {
-      await smartRepliesService.clearCache(conversationId);
-      await generateReplies();
-    } catch (err) {
-      console.error('Error refreshing replies:', err);
-      setError('Failed to refresh replies');
-    }
-  }, [enabled, conversationId, generateReplies]);
-
-  // Auto-generate replies when conversation changes
-  useEffect(() => {
-    if (enabled && conversationId) {
-      getSmartReplies();
-    }
-  }, [conversationId, enabled, getSmartReplies]);
-
-  // Listen for new messages and regenerate replies
-  useEffect(() => {
-    if (!enabled || !conversationId) {
-      return;
-    }
-
-    console.log('[useSmartReplies] Setting up message listener for conversation:', conversationId);
+    isSubscribedRef.current = true;
     
-    const messagesRef = collection(db, 'messages');
-    const q = query(
-      messagesRef,
-      where('conversationId', '==', conversationId),
-      orderBy('timestamp', 'desc'),
-      limit(1) // Only listen to the most recent message
+    const unsubscribe = smartRepliesService.current.subscribeToSmartReplies(
+      conversationId,
+      userId,
+      (newState) => {
+        setState(newState);
+        
+        // Set up auto-refresh if needed
+        if (autoRefresh && newState.replies.length > 0) {
+          setupAutoRefresh();
+        }
+      }
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        console.log('[useSmartReplies] New message detected, regenerating replies');
-        // Debounce the regeneration to avoid too many API calls
-        debouncedGenerateReplies();
-      }
-    }, (error) => {
-      console.error('[useSmartReplies] Error listening to messages:', error);
-    });
+    return unsubscribe;
+  }, [enabled, conversationId, userId, autoRefresh, setupAutoRefresh]);
 
-    return () => {
-      console.log('[useSmartReplies] Cleaning up message listener');
+  /**
+   * Unsubscribe from smart replies updates
+   */
+  const unsubscribe = useCallback(() => {
+    if (isSubscribedRef.current) {
+      smartRepliesService.current.unsubscribeFromSmartReplies(conversationId, userId);
+      isSubscribedRef.current = false;
+    }
+  }, [conversationId, userId]);
+
+  // Set up subscription on mount and when dependencies change
+  useEffect(() => {
+    if (enabled) {
+      const unsubscribe = subscribe();
+      return () => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
+    } else {
       unsubscribe();
-    };
-  }, [enabled, conversationId, debouncedGenerateReplies]);
+    }
+  }, [enabled, subscribe, unsubscribe]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      isGeneratingRef.current = false;
+      unsubscribe();
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
     };
-  }, []);
+  }, [unsubscribe]);
+
+  // Initial load
+  useEffect(() => {
+    if (enabled) {
+      refresh();
+    }
+  }, [enabled, refresh]);
+
+  // Computed values
+  const hasReplies = state.replies.length > 0;
+  const isExpired = state.generatedAt ? 
+    (Date.now() - state.generatedAt) > (24 * 60 * 60 * 1000) : false; // 24 hours
+  const needsRefresh = state.generatedAt ? 
+    (Date.now() - state.generatedAt) > (60 * 60 * 1000) : false; // 1 hour
+  const age = state.generatedAt ? 
+    Math.floor((Date.now() - state.generatedAt) / (1000 * 60)) : 0; // in minutes
 
   return {
-    replies,
-    loading,
-    error,
-    generateReplies: debouncedGenerateReplies,
-    clearReplies,
-    refreshReplies,
-    getCachedReplies,
-    getSmartReplies,
+    // State
+    replies: state.replies,
+    loading: state.loading,
+    error: state.error,
+    generatedAt: state.generatedAt,
+    contextAnalysis: state.contextAnalysis,
+    
+    // Actions
+    refresh,
+    clearError,
+    generateReplies: refresh, // Alias for refresh
+    clearReplies: clearError, // Alias for clearError
+    refreshReplies: manualRefresh, // Alias for manualRefresh (triggers RAG pipeline)
+    manualRefresh, // Manual refresh function
+    
+    // Status
+    hasReplies,
+    isExpired,
+    needsRefresh,
+    age
   };
+}
+
+/**
+ * Hook for smart replies with manual refresh only
+ */
+export function useSmartRepliesManual({
+  conversationId,
+  userId,
+  enabled = true
+}: Omit<UseSmartRepliesOptions, 'autoRefresh' | 'refreshInterval'>): UseSmartRepliesReturn {
+  return useSmartReplies({
+    conversationId,
+    userId,
+    enabled,
+    autoRefresh: false
+  });
+}
+
+/**
+ * Hook for smart replies with custom refresh interval
+ */
+export function useSmartRepliesWithInterval({
+  conversationId,
+  userId,
+  enabled = true,
+  refreshInterval = 5 * 60 * 1000
+}: UseSmartRepliesOptions): UseSmartRepliesReturn {
+  return useSmartReplies({
+    conversationId,
+    userId,
+    enabled,
+    autoRefresh: true,
+    refreshInterval
+  });
 }

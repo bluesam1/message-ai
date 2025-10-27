@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Message } from '../types/message';
-import { translateMessage } from '../services/ai/translationService';
 import { explainMessageContext } from '../services/ai/contextService';
 import { defineMessageSlang } from '../services/ai/definitionService';
 import { getUserLanguage } from '../services/user/userPreferencesService';
@@ -71,55 +70,30 @@ export function useAIFeatures() {
   };
 
   /**
-   * Translate a message
+   * Translate a message (deprecated - now handled automatically in background)
+   * This function is kept for backward compatibility but does nothing
    */
   const handleTranslate = async (message: Message, targetLanguage: string = 'en') => {
-    const messageId = message.id;
-
-    // Set loading state
-    setAIState((prev) => ({
-      ...prev,
-      translationStates: {
-        ...prev.translationStates,
-        [messageId]: {
-          translatedText: message.aiMeta?.translatedText?.[targetLanguage] || null,
-          targetLanguage,
-          isLoading: true,
-          error: null,
-        },
-      },
-    }));
-
-    try {
-      const translatedText = await translateMessage(message, targetLanguage);
-      
-      // Update with translation
+    console.warn('Manual translation is deprecated. Translation now happens automatically in the background.');
+    
+    // Check if translation already exists in the message
+    const existingTranslation = message.aiMeta?.translatedText?.[targetLanguage];
+    if (existingTranslation) {
+      const messageId = message.id;
       setAIState((prev) => ({
         ...prev,
         translationStates: {
           ...prev.translationStates,
           [messageId]: {
-            translatedText,
+            translatedText: existingTranslation,
             targetLanguage,
             isLoading: false,
             error: null,
           },
         },
       }));
-    } catch (error: any) {
-      console.error('Translation failed:', error);
-      setAIState((prev) => ({
-        ...prev,
-        translationStates: {
-          ...prev.translationStates,
-          [messageId]: {
-            translatedText: null,
-            targetLanguage,
-            isLoading: false,
-            error: error.message || 'Translation failed',
-          },
-        },
-      }));
+    } else {
+      console.log('Translation not yet available. It will be processed automatically in the background.');
     }
   };
 

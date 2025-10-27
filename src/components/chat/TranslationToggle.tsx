@@ -23,11 +23,13 @@ interface TranslationToggleProps {
   /** Callback when feedback is given */
   onFeedback: (feedback: 'positive' | 'negative') => void;
   /** Callback when globe icon is pressed */
-  onShowOriginal: () => void;
+  onShowOriginal?: () => void;
   /** Whether to show the original text modal */
-  showOriginal: boolean;
+  showOriginal?: boolean;
   /** Callback to close the modal */
-  onCloseModal: () => void;
+  onCloseModal?: () => void;
+  /** Whether to show original text inline */
+  showOriginalInline?: boolean;
 }
 
 export const TranslationToggle: React.FC<TranslationToggleProps> = ({
@@ -37,15 +39,40 @@ export const TranslationToggle: React.FC<TranslationToggleProps> = ({
   isOwnMessage,
   feedback,
   onFeedback,
-  showOriginal,
+  showOriginal = false,
   onCloseModal,
+  showOriginalInline = false,
 }) => {
   return (
-    <View style={styles.container}>
-      {/* Message Text (always show translated by default) */}
-      <Text style={[styles.text, isOwnMessage && styles.ownMessageText]}>
-        {translatedText}
-      </Text>
+    <>
+      {showOriginalInline ? (
+        /* Two completely separate containers side-by-side */
+        <>
+          {/* Translated Message Bubble (left side) */}
+          <View style={[styles.translatedBubble, isOwnMessage ? styles.ownTranslatedBubble : styles.otherTranslatedBubble]}>
+            <Text style={[styles.translatedText, isOwnMessage && styles.ownTranslatedText]}>
+              {translatedText}
+            </Text>
+          </View>
+          
+          {/* Original Text Container (right side) */}
+          <View style={styles.originalContainer}>
+            <Text style={styles.originalLabel}>Original Text</Text>
+            <View style={[styles.originalDashedContainer, isOwnMessage && styles.ownOriginalDashedContainer]}>
+              <Text style={[styles.originalText, isOwnMessage && styles.ownOriginalText]}>
+                {originalText}
+              </Text>
+            </View>
+          </View>
+        </>
+      ) : (
+        /* Default layout - just translated text */
+        <View style={styles.messageContainer}>
+          <Text style={[styles.text, isOwnMessage && styles.ownMessageText]}>
+            {translatedText}
+          </Text>
+        </View>
+      )}
 
       {/* Translation Details Modal */}
       <Modal
@@ -81,7 +108,7 @@ export const TranslationToggle: React.FC<TranslationToggleProps> = ({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </>
   );
 };
 
@@ -89,9 +116,64 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  messageContainer: {
+    flex: 1,
+  },
+  translatedBubble: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  otherTranslatedBubble: {
+    backgroundColor: '#F1F1F1',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  ownTranslatedBubble: {
+    backgroundColor: '#007AFF',
+  },
+  translatedText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#000',
+  },
+  ownTranslatedText: {
+    color: '#FFFFFF',
+  },
+  originalContainer: {
+    flex: 1,
+  },
+  originalLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#666',
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  originalDashedContainer: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#999',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  },
+  ownOriginalDashedContainer: {
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  originalText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#000',
+  },
+  ownOriginalText: {
+    color: '#FFFFFF',
+  },
   text: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     color: '#000',
   },
   ownMessageText: {
@@ -131,12 +213,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#8E8E93',
     fontWeight: '300',
-  },
-  originalText: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#000',
-    marginBottom: 16,
   },
   feedbackSection: {
     borderTopWidth: 1,

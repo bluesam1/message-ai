@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-**International Communicator** (formerly MessageAI) follows a **layered architecture** with clear separation between UI, business logic, and data persistence. The app now features comprehensive AI-powered communication assistance including smart replies, tone adjustment, and real-time translation.
+**International Communicator** (formerly MessageAI) follows a **layered architecture** with clear separation between UI, business logic, and data persistence. The app now features comprehensive AI-powered communication assistance including smart replies with RAG pipeline, tone adjustment, real-time translation, and a robust service layer architecture.
 
 ```
 ┌─────────────────────────────────────┐
@@ -113,18 +113,28 @@ const loadConversation = async (conversationId: string) => {
 - User profiles
 - Message history
 
-### 3. Service Layer Abstraction
+### 3. Service Layer Abstraction (Enhanced)
 
-**Pattern:** Isolate business logic from UI and data sources
+**Pattern:** Isolate business logic from UI and data sources using singleton pattern
 
 **Structure:**
 ```
-services/
+functions/src/services/
+├── translationService.ts        # OpenAI translation with caching
+├── messageService.ts           # Message retrieval and management
+├── conversationService.ts      # Conversation operations and settings
+├── smartRepliesService.ts      # RAG pipeline for smart replies
+├── contextAnalysisService.ts   # AI-powered context analysis
+├── conversationSettingsService.ts # Conversation settings management
+├── presenceService.ts          # RTDB presence mirroring
+└── notificationService.ts      # Push notification management
+
+src/services/
 ├── firebase/
-│   ├── authService.ts       # Authentication operations
-│   └── storageService.ts    # File upload/download
+│   ├── authService.ts          # Authentication operations
+│   └── storageService.ts       # File upload/download
 ├── messaging/
-│   ├── messageService.ts    # Message business logic
+│   ├── messageService.ts       # Message business logic
 │   ├── conversationService.ts
 │   └── readReceiptService.ts
 ├── ai/
@@ -137,10 +147,33 @@ services/
     └── userService.ts
 ```
 
+**Singleton Pattern Implementation:**
+```typescript
+export class TranslationService {
+  private static instance: TranslationService;
+  
+  private constructor() {
+    // Initialize once
+  }
+  
+  public static getInstance(): TranslationService {
+    if (!TranslationService.instance) {
+      TranslationService.instance = new TranslationService();
+    }
+    return TranslationService.instance;
+  }
+}
+
+// Usage
+const translationService = TranslationService.getInstance();
+```
+
 **Why:** 
 - Testable business logic
 - Clear separation of concerns
 - Easy to maintain and extend
+- Singleton pattern ensures single instance per service
+- Consistent API across client and server
 
 ### 4. Firestore Automatic Offline Queue
 
@@ -765,6 +798,43 @@ export const translateMessage = onCall(async (request) => {
 **Key Principle:** These patterns prioritize performance and user experience while maintaining code clarity and testability.
 
 ## AI-Powered Smart Communication Features
+
+### RAG Pipeline Pattern (PRD 2.3.1)
+
+**Pattern:** 8-step Retrieval-Augmented Generation pipeline for context-aware smart replies
+
+**Implementation:**
+```typescript
+// 8-Step RAG Pipeline
+async generateSmartReplies(conversationId: string, userId: string): Promise<RAGPipelineResult> {
+  // Step 1: Retrieval - Extract last 30 messages
+  const recentMessages = this.retrieveRecentMessages(messages);
+  
+  // Step 2-4: Parallel Analysis
+  const parallelResults = await this.executeParallelAnalysis(recentMessages, settings);
+  
+  // Step 5: Augmentation - Build enriched prompt
+  const enrichedPrompt = this.buildEnrichedPrompt(messages, contextAnalysis, settings);
+  
+  // Step 6: Generation - Generate smart replies
+  const generationResult = await this.generateSmartRepliesWithAI(enrichedPrompt);
+  
+  // Step 7: Post-Processing - Rank and filter replies
+  const processedReplies = this.postProcessReplies(generationResult.replies, contextAnalysis);
+  
+  // Step 8: Caching - Store results
+  const smartReplies = this.createSmartRepliesDocument(conversationId, userId, processedReplies);
+  
+  return { success: true, smartReplies, pipelineSteps, totalDuration };
+}
+```
+
+**Key Features:**
+1. **Context Analysis**: AI analyzes conversation topics, sentiment, entities, language, tone
+2. **User Language Preferences**: Respects each user's target language setting
+3. **Intelligent Caching**: 5-minute cache per conversation per user
+4. **Fallback Handling**: Graceful degradation with user-friendly error messages
+5. **Performance Optimization**: Rate limiting, cost monitoring, and offline support
 
 ### Smart Replies System
 **Pattern:** Context-aware reply suggestions with user language preferences

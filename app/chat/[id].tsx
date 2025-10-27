@@ -22,16 +22,14 @@ import { SlangDefinition } from '../../src/components/chat/SlangDefinition';
 import { useAutoTranslate } from '../../src/hooks/useAutoTranslate';
 import { userPreferencesService } from '../../src/services/user/userPreferencesService';
 import { getLanguageName } from '../../src/services/ai/languageService';
-import { LanguageSelector } from '../../src/components/chat/LanguageSelector';
+import { GearIconDropdown } from '../../src/components/chat/GearIconDropdown';
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [showTranslateInfo, setShowTranslateInfo] = useState(false);
-  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [userPreferredLanguage, setUserPreferredLanguage] = useState<string>('en');
-  const [updatingLanguage, setUpdatingLanguage] = useState(false);
   const [participantsLanguages, setParticipantsLanguages] = useState<Record<string, string>>({});
   const [showLanguageBanner, setShowLanguageBanner] = useState(true);
   
@@ -138,31 +136,6 @@ export default function ChatScreen() {
     }
   };
 
-  // Handle language selection
-  const handleLanguageSelect = async (languageCode: string) => {
-    if (!user?.uid) return;
-    
-    try {
-      setUpdatingLanguage(true);
-      await userPreferencesService.updateUserLanguage(user.uid, languageCode);
-      setUserPreferredLanguage(languageCode);
-      
-      // Update auto-translate preferences if enabled
-      if (autoTranslatePrefs?.autoTranslate) {
-        await updateAutoTranslatePrefs({
-          autoTranslate: true,
-          targetLang: languageCode,
-        });
-      }
-      
-      Alert.alert('Success', `Language changed to ${getLanguageName(languageCode)}`);
-    } catch (error: any) {
-      console.error('[ChatScreen] Error updating language:', error);
-      Alert.alert('Error', 'Failed to update language');
-    } finally {
-      setUpdatingLanguage(false);
-    }
-  };
 
   // Check if there's a language mismatch between user and other participants
   const hasLanguageMismatch = (): boolean => {
@@ -226,11 +199,13 @@ export default function ChatScreen() {
   // Animate globe rotation when auto-translate is on
   useEffect(() => {
     if (autoTranslatePrefs?.autoTranslate) {
+      // Reset animation value first
+      rotateAnim.setValue(0);
       // Start rotating
       Animated.loop(
         Animated.timing(rotateAnim, {
           toValue: 1,
-          duration: 3000, // 3 seconds for full rotation
+          duration: 4000, // 4 seconds for full rotation (slower)
           useNativeDriver: true,
         })
       ).start();
@@ -254,6 +229,17 @@ export default function ChatScreen() {
           headerTitle: () => (
             <View style={styles.headerTitleContainer}>
               <View style={styles.headerTitleRow}>
+                {/* Show spinning globe indicator when auto-translate is enabled */}
+                {autoTranslatePrefs?.autoTranslate && (
+                  <Animated.Text 
+                    style={[
+                      styles.globeIcon,
+                      { transform: [{ rotate: spin }] }
+                    ]}
+                  >
+                    🌐
+                  </Animated.Text>
+                )}
                 <Text style={styles.headerTitle} numberOfLines={1}>
                   {headerTitle || 'Chat'}
                 </Text>
@@ -286,25 +272,14 @@ export default function ChatScreen() {
           ),
           headerRight: () => (
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              {/* Auto-Translate Toggle */}
-              <TouchableOpacity
-                onPress={handleToggleAutoTranslate}
-                onLongPress={() => setShowTranslateInfo(true)}
-                style={[
-                  styles.translateToggle,
-                  autoTranslatePrefs?.autoTranslate && styles.translateToggleActive
-                ]}
-              >
-                <Animated.Text 
-                  style={[
-                    styles.translateToggleText,
-                    autoTranslatePrefs?.autoTranslate && styles.translateToggleTextActive,
-                    autoTranslatePrefs?.autoTranslate && { transform: [{ rotate: spin }] }
-                  ]}
-                >
-                  🌐
-                </Animated.Text>
-              </TouchableOpacity>
+              {/* Gear Icon Dropdown */}
+              <GearIconDropdown
+                conversationId={id || ''}
+                userId={user?.uid || ''}
+                autoTranslateEnabled={autoTranslatePrefs?.autoTranslate || false}
+                onAutoTranslateToggle={handleToggleAutoTranslate}
+                userPreferredLanguage={userPreferredLanguage}
+              />
             </View>
           ),
         }}
@@ -457,36 +432,11 @@ export default function ChatScreen() {
                 </Text>
               </View>
               
-              {/* Language Selection Section */}
-              <View style={styles.infoModalDivider} />
-              <View style={styles.infoModalLanguageSection}>
-                <Text style={styles.infoModalLabel}>Your Preferred Language</Text>
-                <TouchableOpacity
-                  style={styles.infoModalLanguageButton}
-                  onPress={() => {
-                    setShowTranslateInfo(false);
-                    setShowLanguageSelector(true);
-                  }}
-                  disabled={updatingLanguage}
-                >
-                  <Text style={styles.infoModalLanguageButtonText}>
-                    {getLanguageName(userPreferredLanguage)}
-                  </Text>
-                  <Text style={styles.infoModalLanguageButtonArrow}>›</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           </View>
         </Pressable>
       </Modal>
 
-      {/* Language Selector Modal */}
-      <LanguageSelector
-        visible={showLanguageSelector}
-        selectedLanguage={userPreferredLanguage}
-        onSelectLanguage={handleLanguageSelect}
-        onClose={() => setShowLanguageSelector(false)}
-      />
     </>
   );
 }
@@ -632,40 +582,6 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     lineHeight: 18,
   },
-  infoModalDivider: {
-    height: 1,
-    backgroundColor: '#E5E5EA',
-    marginVertical: 16,
-  },
-  infoModalLanguageSection: {
-    gap: 8,
-  },
-  infoModalLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  infoModalLanguageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F2F2F7',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  infoModalLanguageButtonText: {
-    fontSize: 16,
-    color: '#000',
-    fontWeight: '500',
-  },
-  infoModalLanguageButtonArrow: {
-    fontSize: 24,
-    color: '#8E8E93',
-    fontWeight: '300',
-  },
   languageBanner: {
     backgroundColor: '#F8F4E8',
     borderTopWidth: 1,
@@ -703,6 +619,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#8E8E93',
     fontWeight: '300',
+  },
+  globeIcon: {
+    fontSize: 16,
+    marginRight: 0,
   },
 });
 

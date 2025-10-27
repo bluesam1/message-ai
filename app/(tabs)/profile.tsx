@@ -37,7 +37,6 @@ export default function ProfileScreen() {
     loadLanguage();
   }, [user?.uid]);
 
-
   const handleLanguageSelect = async (languageCode: string) => {
     if (!user?.uid) return;
     
@@ -56,7 +55,6 @@ export default function ProfileScreen() {
       setSavingLanguage(false);
     }
   };
-
 
   const handleSignOut = async () => {
     console.log('[ProfileScreen] handleSignOut called');
