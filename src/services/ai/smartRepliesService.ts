@@ -1,150 +1,212 @@
 /**
- * Smart Replies Service
- * 
- * Handles API calls and caching for context-aware smart replies
+ * Client service for fetching smart replies from Firestore
  */
 
-import { httpsCallable } from 'firebase/functions';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db, functions } from '../../config/firebase';
-import { 
-  GenerateSmartRepliesRequest, 
-  GenerateSmartRepliesResponse,
-  SmartRepliesService as ISmartRepliesService 
-} from '../../types/ai';
+import { getFirestore, doc, getDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { SmartReplies } from '../../../functions/src/types/rag';
 
-/**
- * Smart Replies Service implementation
- */
-export class SmartRepliesService implements ISmartRepliesService {
-  private generateSmartRepliesCallable: any;
-
-  constructor() {
-    console.log('[SmartRepliesService] Initializing service...');
-    // Initialize Cloud Function callable
-    this.generateSmartRepliesCallable = httpsCallable(functions, 'generateSmartReplies');
-    console.log('[SmartRepliesService] Service initialized with callable:', !!this.generateSmartRepliesCallable);
-  }
-
-  /**
-   * Generate smart replies for a conversation
-   * @param conversationId - ID of the conversation
-   * @param userId - ID of the user requesting replies
-   * @returns Promise with smart replies response
-   */
-  async generateReplies(
-    conversationId: string, 
-    userId: string
-  ): Promise<GenerateSmartRepliesResponse> {
-    try {
-      console.log('[SmartRepliesService] generateReplies method called with:', { conversationId, userId });
-      console.log('[SmartRepliesService] Generating smart replies for conversation:', conversationId, 'user:', userId);
-      
-      const request: GenerateSmartRepliesRequest = {
-        conversationId,
-        userId,
-      };
-
-      console.log('[SmartRepliesService] Calling Cloud Function with request:', request);
-      const result = await this.generateSmartRepliesCallable(request);
-      console.log('[SmartRepliesService] Cloud Function response:', result);
-      return result.data as GenerateSmartRepliesResponse;
-    } catch (error) {
-      console.error('Error generating smart replies:', error);
-      
-      // Return fallback response on error
-      return {
-        replies: ["AI had a hard time fulfilling your request. Try again later."],
-        conversationLanguage: 'unknown',
-        conversationTone: 'neutral',
-        tokensUsed: 0,
-        cached: false,
-      };
-    }
-  }
-
-  /**
-   * Get cached smart replies from conversation document
-   * @param conversationId - ID of the conversation
-   * @returns Promise with cached replies or null if not found/expired
-   */
-  async getCachedReplies(conversationId: string): Promise<string[] | null> {
-    try {
-      const conversationRef = doc(db, 'conversations', conversationId);
-      const conversationDoc = await getDoc(conversationRef);
-
-      if (!conversationDoc.exists()) {
-        return null;
-      }
-
-      const data = conversationDoc.data();
-      const cache = data.smartRepliesCache;
-
-      if (!cache || !cache.replies || !Array.isArray(cache.replies)) {
-        return null;
-      }
-
-      // Check if cache is still valid (less than 5 minutes old)
-      const now = new Date();
-      const cacheTime = cache.lastUpdated?.toDate();
-      
-      if (!cacheTime || (now.getTime() - cacheTime.getTime()) > 300000) { // 5 minutes
-        return null;
-      }
-
-      return cache.replies;
-    } catch (error) {
-      console.error('Error getting cached replies:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Clear smart replies cache for a conversation
-   * @param conversationId - ID of the conversation
-   */
-  async clearCache(conversationId: string): Promise<void> {
-    try {
-      const conversationRef = doc(db, 'conversations', conversationId);
-      await updateDoc(conversationRef, {
-        smartRepliesCache: null,
-      });
-    } catch (error) {
-      console.error('Error clearing smart replies cache:', error);
-    }
-  }
-
-  /**
-   * Check if smart replies are available for a conversation
-   * @param conversationId - ID of the conversation
-   * @returns Promise with boolean indicating if replies are available
-   */
-  async hasCachedReplies(conversationId: string): Promise<boolean> {
-    const cached = await this.getCachedReplies(conversationId);
-    return cached !== null && cached.length > 0;
-  }
-
-  /**
-   * Get smart replies with fallback to generation if cache is empty
-   * @param conversationId - ID of the conversation
-   * @param userId - ID of the user requesting replies
-   * @returns Promise with smart replies
-   */
-  async getSmartReplies(
-    conversationId: string, 
-    userId: string
-  ): Promise<string[]> {
-    // Try to get cached replies first
-    const cached = await this.getCachedReplies(conversationId);
-    if (cached && cached.length > 0) {
-      return cached;
-    }
-
-    // Generate new replies if cache is empty or expired
-    const response = await this.generateReplies(conversationId, userId);
-    return response.replies;
-  }
+export interface SmartRepliesState {
+  replies: string[];
+  loading: boolean;
+  error: string | null;
+  generatedAt: number | null;
+  contextAnalysis: {
+    topics: string[];
+    sentiment: 'positive' | 'neutral' | 'negative';
+    entities: string[];
+    language: string;
+    tone: 'formal' | 'casual' | 'auto';
+    messageCount: number;
+    analyzedAt: number;
+  } | null;
 }
 
-// Export singleton instance
-export const smartRepliesService = new SmartRepliesService();
+/**
+ * Smart replies service for client-side integration
+ */
+export class SmartRepliesService {
+  private db = getFirestore();
+  private listeners: Map<string, Unsubscribe> = new Map();
+
+  /**
+   * Gets smart replies for a conversation and user
+   */
+  async getSmartReplies(
+    conversationId: string,
+    userId: string
+  ): Promise<SmartRepliesState> {
+    try {
+      const smartRepliesId = `${conversationId}_${userId}`;
+      const smartRepliesDoc = doc(this.db, 'smartReplies', smartRepliesId);
+      const smartRepliesSnapshot = await getDoc(smartRepliesDoc);
+
+      if (!smartRepliesSnapshot.exists()) {
+        return {
+          replies: [],
+          loading: false,
+          error: null,
+          generatedAt: null,
+          contextAnalysis: null
+        };
+      }
+
+      const data = smartRepliesSnapshot.data() as SmartReplies;
+      
+      return {
+        replies: data.replies || [],
+        loading: false,
+        error: null,
+        generatedAt: data.generatedAt,
+        contextAnalysis: data.contextAnalysis
+      };
+    } catch (error) {
+      console.error('Failed to get smart replies:', error);
+      return {
+        replies: [],
+        loading: false,
+        error: error instanceof Error ? error.message : 'Failed to load smart replies',
+        generatedAt: null,
+        contextAnalysis: null
+      };
+    }
+  }
+
+  /**
+   * Subscribes to smart replies updates for a conversation and user
+   */
+  subscribeToSmartReplies(
+    conversationId: string,
+    userId: string,
+    onUpdate: (state: SmartRepliesState) => void
+  ): () => void {
+    const smartRepliesId = `${conversationId}_${userId}`;
+    
+    // Remove existing listener if any
+    this.unsubscribeFromSmartReplies(conversationId, userId);
+
+    const smartRepliesDoc = doc(this.db, 'smartReplies', smartRepliesId);
+    
+    const unsubscribe = onSnapshot(
+      smartRepliesDoc,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          onUpdate({
+            replies: [],
+            loading: false,
+            error: null,
+            generatedAt: null,
+            contextAnalysis: null
+          });
+          return;
+        }
+
+        const data = snapshot.data() as SmartReplies;
+        
+        onUpdate({
+          replies: data.replies || [],
+          loading: false,
+          error: null,
+          generatedAt: data.generatedAt,
+          contextAnalysis: data.contextAnalysis
+        });
+      },
+      (error) => {
+        console.error('Smart replies subscription error:', error);
+        onUpdate({
+          replies: [],
+          loading: false,
+          error: error.message,
+          generatedAt: null,
+          contextAnalysis: null
+        });
+      }
+    );
+
+    this.listeners.set(smartRepliesId, unsubscribe);
+    return unsubscribe;
+  }
+
+  /**
+   * Unsubscribes from smart replies updates
+   */
+  unsubscribeFromSmartReplies(conversationId: string, userId: string): void {
+    const smartRepliesId = `${conversationId}_${userId}`;
+    const unsubscribe = this.listeners.get(smartRepliesId);
+    
+    if (unsubscribe) {
+      unsubscribe();
+      this.listeners.delete(smartRepliesId);
+    }
+  }
+
+  /**
+   * Unsubscribes from all smart replies listeners
+   */
+  unsubscribeFromAllSmartReplies(): void {
+    this.listeners.forEach((unsubscribe) => {
+      unsubscribe();
+    });
+    this.listeners.clear();
+  }
+
+  /**
+   * Checks if smart replies are expired
+   */
+  isExpired(smartReplies: SmartReplies): boolean {
+    if (!smartReplies.expiresAt) {
+      return false; // No expiration set
+    }
+    
+    return Date.now() > smartReplies.expiresAt;
+  }
+
+  /**
+   * Gets the age of smart replies in minutes
+   */
+  getAge(smartReplies: SmartReplies): number {
+    if (!smartReplies.generatedAt) {
+      return 0;
+    }
+    
+    return Math.floor((Date.now() - smartReplies.generatedAt) / (1000 * 60));
+  }
+
+  /**
+   * Checks if smart replies need refresh (older than 1 hour)
+   */
+  needsRefresh(smartReplies: SmartReplies): boolean {
+    return this.getAge(smartReplies) > 60; // 1 hour
+  }
+
+  /**
+   * Formats smart replies for display
+   */
+  formatReplies(replies: string[]): string[] {
+    return replies.map(reply => reply.trim()).filter(reply => reply.length > 0);
+  }
+
+  /**
+   * Gets smart replies summary for debugging
+   */
+  getSummary(smartReplies: SmartReplies): {
+    id: string;
+    conversationId: string;
+    userId: string;
+    repliesCount: number;
+    age: number;
+    expired: boolean;
+    needsRefresh: boolean;
+    contextAnalysis: any;
+  } {
+    return {
+      id: smartReplies.id,
+      conversationId: smartReplies.conversationId,
+      userId: smartReplies.userId,
+      repliesCount: smartReplies.replies.length,
+      age: this.getAge(smartReplies),
+      expired: this.isExpired(smartReplies),
+      needsRefresh: this.needsRefresh(smartReplies),
+      contextAnalysis: smartReplies.contextAnalysis
+    };
+  }
+}

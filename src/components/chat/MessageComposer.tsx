@@ -8,7 +8,7 @@
  * - Rephrase functionality
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -19,10 +19,9 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSmartReplies } from '../../hooks/useSmartReplies';
 import { useToneAdjustment } from '../../hooks/useToneAdjustment';
 import { toneAdjustmentService } from '../../services/ai/toneAdjustmentService';
-import SmartReplyChips from './SmartReplyChips';
+import { SmartRepliesCarousel } from './SmartRepliesCarousel';
 import ToneSuggestionChip from './ToneSuggestionChip';
 import RephraseModal from './RephraseModal';
 
@@ -39,6 +38,8 @@ interface MessageComposerProps {
   userId: string;
   /** Whether smart replies are enabled */
   smartRepliesEnabled?: boolean;
+  /** Whether to auto-focus on mount */
+  autoFocus?: boolean;
 }
 
 /**
@@ -51,24 +52,34 @@ export default function MessageComposer({
   conversationId,
   userId,
   smartRepliesEnabled = true,
+  autoFocus = true,
 }: MessageComposerProps) {
   const [text, setText] = useState('');
   const [showRephraseModal, setShowRephraseModal] = useState(false);
   const [messageId, setMessageId] = useState<string | undefined>(undefined);
+  const textInputRef = useRef<TextInput>(null);
 
-  // Smart replies hook
-  const {
-    replies,
-    loading: smartRepliesLoading,
-    error: smartRepliesError,
-    generateReplies,
-    clearReplies,
-    refreshReplies,
-  } = useSmartReplies({
-    conversationId,
-    userId,
-    enabled: smartRepliesEnabled,
-  });
+  // Auto-focus on mount if enabled
+  useEffect(() => {
+    if (autoFocus && !disabled) {
+      const timer = setTimeout(() => {
+        textInputRef.current?.focus();
+      }, 300); // Small delay to ensure the screen is fully loaded
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocus, disabled]);
+
+  // Re-focus when disabled state changes (e.g., when conversation loads)
+  useEffect(() => {
+    if (autoFocus && !disabled) {
+      const timer = setTimeout(() => {
+        textInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [disabled, autoFocus]);
+
+  // Smart replies are now handled by SmartRepliesCarousel component
 
   // Tone adjustment hook
   const {
@@ -100,12 +111,16 @@ export default function MessageComposer({
     
     // Clear input immediately for better UX
     setText('');
-    clearReplies();
     clearRephrase();
 
     try {
       await onSend(messageText);
       console.log('[MessageComposer] Message sent successfully');
+      
+      // Re-focus the input after sending to allow immediate typing
+      setTimeout(() => {
+        textInputRef.current?.focus();
+      }, 100);
     } catch (error) {
       console.error('[MessageComposer] Failed to send message:', error);
       setText(messageText); // Restore text on error
@@ -125,8 +140,12 @@ export default function MessageComposer({
    */
   const handleSmartReplyPress = useCallback((reply: string) => {
     setText(reply);
-    clearReplies();
-  }, [clearReplies]);
+    // Focus the text input to show keyboard and allow immediate editing
+    // Use a small delay to ensure the text is set before focusing
+    setTimeout(() => {
+      textInputRef.current?.focus();
+    }, 150);
+  }, []);
 
   /**
    * Handle rephrase button press
@@ -179,13 +198,7 @@ export default function MessageComposer({
    * Handle settings toggle
    */
 
-  // Generate smart replies when conversation changes
-  useEffect(() => {
-    if (smartRepliesEnabled && conversationId) {
-      console.log('[MessageComposer] Generating smart replies for conversation:', conversationId);
-      generateReplies();
-    }
-  }, [conversationId, smartRepliesEnabled, generateReplies]);
+  // Smart replies generation is now handled by SmartRepliesCarousel component
 
   return (
     <KeyboardAvoidingView
@@ -193,14 +206,13 @@ export default function MessageComposer({
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <View style={styles.container}>
-        {/* Smart Reply Chips */}
+        {/* Smart Reply Carousel */}
         {smartRepliesEnabled && (
-          <SmartReplyChips
-            replies={replies}
-            loading={smartRepliesLoading}
-            onReplyPress={handleSmartReplyPress}
-            onRefresh={refreshReplies}
-            error={smartRepliesError}
+          <SmartRepliesCarousel
+            conversationId={conversationId}
+            userId={userId}
+            onReplySelect={handleSmartReplyPress}
+            enabled={smartRepliesEnabled}
           />
         )}
 
@@ -209,6 +221,7 @@ export default function MessageComposer({
         <View style={styles.inputContainer}>
           {/* Text Input */}
           <TextInput
+            ref={textInputRef}
             style={styles.input}
             placeholder={placeholder}
             placeholderTextColor="#8E8E93"

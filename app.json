@@ -1,9 +1,9 @@
 {
   "expo": {
     "name": "Message AI: International Communicator",
-    "slug": "message-ai1",
+    "slug": "message-ui",
     "version": "1.0.0",
-    "owner": "anonymous",
+    "owner": "bluesam",
     "extra": {
       "eas": {
         "projectId": "1cd48f5c-5a77-4f9c-a683-4f77e118780c"
@@ -23,7 +23,10 @@
       "bundleIdentifier": "com.bluesam.messagai",
       "googleServicesFile": "./GoogleService-Info.plist",
       "iosDisplayInForeground": true,
-      "supportsTabletMultitasking": true
+      "supportsTabletMultitasking": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.bluesam.messagai",

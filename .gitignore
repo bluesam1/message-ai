@@ -46,3 +46,4 @@ coverage/
 
 # Integration test scripts are included in git for manual testing
 # (Pre-commit hooks only run Jest tests, not Node.js scripts)
+planning/supporting/MessageAI Rubric.pdf

@@ -61,6 +61,54 @@ service cloud.firestore {
       // Users cannot delete messages (consider soft delete instead)
       allow delete: if false;
     }
+    
+    // Smart Replies collection
+    match /smartReplies/{smartRepliesId} {
+      // Users can read smart replies if the document ID contains their userId
+      // Document ID format: {conversationId}_{userId}
+      allow read: if isAuthenticated() && 
+                     smartRepliesId.matches('.*_' + request.auth.uid);
+      
+      // Cloud Functions can create/update smart replies
+      allow create, update: if isAuthenticated();
+      
+      // Users cannot delete smart replies (handled by Cloud Functions)
+      allow delete: if false;
+    }
+    
+    // Conversation Settings collection
+    match /conversationSettings/{settingsId} {
+      // Users can read their own conversation settings
+      // Document ID format: {conversationId}_{userId}
+      allow read: if isAuthenticated() && 
+                     settingsId.matches('.*_' + request.auth.uid);
+      
+      // Users can create/update their own conversation settings
+      allow create, update: if isAuthenticated() && 
+                              settingsId.matches('.*_' + request.auth.uid);
+      
+      // Users cannot delete conversation settings
+      allow delete: if false;
+    }
+    
+    // Smart Replies Metrics collection (for monitoring)
+    match /smartRepliesMetrics/{metricId} {
+      // Only Cloud Functions can write metrics
+      allow read, write: if false;
+    }
+    
+    // Daily Usage collection (for cost tracking)
+    match /dailyUsage/{usageId} {
+      // Users can read their own usage data
+      allow read: if isAuthenticated() && 
+                     request.auth.uid == resource.data.userId;
+      
+      // Cloud Functions can create/update usage data
+      allow create, update: if isAuthenticated();
+      
+      // Users cannot delete usage data
+      allow delete: if false;
+    }
   }
 }
 

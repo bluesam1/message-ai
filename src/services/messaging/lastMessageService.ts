@@ -7,7 +7,6 @@
 import { db } from '../../config/firebase';
 import { collection, query, where, orderBy, limit, getDocs, getDoc, doc, Timestamp } from 'firebase/firestore';
 import { getUserLanguage } from '../user/userPreferencesService';
-import { translateText } from '../ai/translationService';
 
 export interface LastMessagePreview {
   conversationId: string;
@@ -145,23 +144,22 @@ export async function getLastMessagePreview(
       };
     }
     
-    // Translate the message
-    console.log(`[LastMessageService] 🔄 Translating message to ${targetLang}...`);
-    try {
-      const translatedText = await translateText(originalText, targetLang, detectedLang);
-      
+    // Check if translation already exists in messageData.aiMeta
+    const existingTranslation = messageData.aiMeta?.translatedText?.[targetLang];
+    if (existingTranslation) {
+      console.log(`[LastMessageService] ✅ Using existing translation for ${targetLang}`);
       return {
         conversationId,
-        text: translatedText,
+        text: existingTranslation,
         timestamp,
         senderId,
         senderName,
         isTranslated: true,
         originalText
       };
-    } catch (translateError) {
-      console.error(`[LastMessageService] ❌ Translation failed:`, translateError);
-      // Return original text on translation failure
+    } else {
+      console.log(`[LastMessageService] ⏳ Translation not yet available for ${targetLang}, using original text`);
+      // Return original text - translation will be processed automatically in background
       return {
         conversationId,
         text: originalText,

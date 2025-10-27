@@ -140,7 +140,6 @@ export default function MessageList({
         isRead={isRead}
         totalParticipants={totalParticipants}
         onLongPress={() => onMessageLongPress?.(item)}
-        translationState={translationState || undefined}
         autoTranslatePrefs={autoTranslatePrefs}
       />
     );

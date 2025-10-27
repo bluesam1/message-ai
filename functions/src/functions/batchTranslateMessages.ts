@@ -9,19 +9,11 @@
  */
 
 import * as functions from 'firebase-functions';
-import * as admin from 'firebase-admin';
-import { detectLanguage } from '../utils/languageDetection';
-import { translateText } from '../utils/translation';
+import { translationService } from '../services/translationService';
+import { messageService } from '../services/messageService';
 
 // OpenAI initialization is now handled by utility functions
 
-interface AIMetadata {
-  detectedLang?: string;
-  translatedText?: { [lang: string]: string };
-  explanation?: string;
-  slangDefinition?: string;
-  feedback?: 'positive' | 'negative';
-}
 
 /**
  * Batch Translate Recent Messages
@@ -58,20 +50,15 @@ export const batchTranslateMessages = functions.firestore
     
     console.log(`[Batch Translate] ${newlyEnabledUsers.length} users enabled auto-translate in conversation ${conversationId}`);
     
-    // Fetch recent messages (last 50 messages)
-    const messagesSnapshot = await admin.firestore()
-      .collection('messages')
-      .where('conversationId', '==', conversationId)
-      .orderBy('timestamp', 'desc')
-      .limit(50)
-      .get();
+    // Fetch recent messages using message service
+    const messages = await messageService.getRecentMessages(conversationId, 50);
     
-    if (messagesSnapshot.empty) {
+    if (messages.length === 0) {
       console.log(`[Batch Translate] No messages found in conversation ${conversationId}`);
       return null;
     }
     
-    console.log(`[Batch Translate] Found ${messagesSnapshot.size} recent messages to check`);
+    console.log(`[Batch Translate] Found ${messages.length} recent messages to check`);
     
     // Process translations for each newly enabled user
     const translationPromises = newlyEnabledUsers.map(async ({ userId, targetLang }) => {
@@ -80,60 +67,27 @@ export const batchTranslateMessages = functions.firestore
       let translatedCount = 0;
       let skippedCount = 0;
       
-      for (const messageDoc of messagesSnapshot.docs) {
-        const messageData = messageDoc.data();
-        const messageId = messageDoc.id;
+      for (const message of messages) {
+        const messageId = message.id;
         
         // Skip messages from the user themselves
-        if (messageData.senderId === userId) {
+        if (message.senderId === userId) {
           continue;
         }
         
-        // Check if translation already exists
-        const aiMeta: AIMetadata = messageData.aiMeta || {};
-        if (aiMeta.translatedText?.[targetLang]) {
-          skippedCount++;
-          continue; // Already translated
-        }
-        
         // Skip if no text content
-        if (!messageData.text || typeof messageData.text !== 'string') {
+        if (!message.text || typeof message.text !== 'string') {
           continue;
         }
         
         try {
-          // Detect language if not already detected
-          let detectedLang = aiMeta.detectedLang;
+          // Use translation service to translate the message
+          const translatedText = await translationService.translate(message.text, targetLang, undefined, userId);
           
-          if (!detectedLang) {
-            detectedLang = await detectLanguage(messageData.text, userId);
-          }
-          
-          // Skip translation if already in target language
-          if (detectedLang === targetLang) {
-            console.log(`[Batch Translate] Message ${messageId} already in ${targetLang}, skipping`);
-            
-            // Update with detected language if not set
-            if (!aiMeta.detectedLang) {
-              await messageDoc.ref.update({
-                'aiMeta.detectedLang': detectedLang,
-              });
-            }
-            
-            skippedCount++;
-            continue;
-          }
-          
-          // Translate the message
-          const translatedText = await translateText(messageData.text, targetLang, detectedLang, userId);
-          
-          // Update message with translation
-          const updatedTranslations = aiMeta.translatedText || {};
-          updatedTranslations[targetLang] = translatedText;
-          
-          await messageDoc.ref.update({
-            'aiMeta.detectedLang': detectedLang,
-            'aiMeta.translatedText': updatedTranslations,
+          // Update message with translation using message service
+          await messageService.updateMessageMetadata(messageId, {
+            language: targetLang,
+            tone: 'neutral'
           });
           
           translatedCount++;

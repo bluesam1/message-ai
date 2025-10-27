@@ -65,7 +65,7 @@ export const detectLanguage = https.onCall(
 
       try {
         // Call utility function
-        const detectedLanguage = await detectLanguageUtil(text, userId);
+        const detectedLanguage = detectLanguageUtil(text, userId);
 
         const response: DetectLanguageResponse = {
           detectedLanguage: detectedLanguage,
